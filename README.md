@@ -1,6 +1,6 @@
 # Audial
 
-A community of musicl enthusiasts brought together through sharing intimate and creator curated playlists.
+A community of music enthusiasts brought together through sharing intimate and creator curated playlists.
 
 ## What it does
 
