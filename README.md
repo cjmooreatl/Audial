@@ -1,10 +1,10 @@
-# Hello World — MindStudio App
+# Audial
 
-A minimal starter app that generates creative AI greetings. Demonstrates the core MindStudio app lifecycle: spec, method, table, and web interface.
+A community of musicl enthusiasts brought together through sharing intimate and creator curated playlists.
 
 ## What it does
 
-Enter a name, get a unique AI-generated greeting. Greetings stream in real-time and are saved to a database.
+Audial allows for the sharing of one of the most personal types of media out there, the playlist, with others. Built for a hackathon using MindStudio's Remy AI, I am creating its own repository to continue its development on my own.
 
 ## Structure
 
