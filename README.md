@@ -4,7 +4,7 @@ A community of musicl enthusiasts brought together through sharing intimate and 
 
 ## What it does
 
-Audial allows for the sharing of one of the most personal types of media out there, the playlist, with others. Built for a hackathon using MindStudio's Remy AI, I am creating its own repository to continue its development on my own.
+Audial allows for the sharing of one of the most personal types of media out there, the playlist, with others. Built for a hackathon using MindStudio's Remy AI, I am creating its own repository to continue its development on my own. 
 
 ## Structure
 
