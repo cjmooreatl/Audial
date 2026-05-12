@@ -1,0 +1,646 @@
+/* ====================================================================
+   Audial — design tokens, base resets, and shared primitive styles.
+   The brand: bone paper, ink, signal chartreuse. Sharp corners.
+   No shadows. Mono for metadata. The voice is broadcast-coded.
+   ==================================================================== */
+
+:root {
+  /* Color palette — see src/interfaces/@brand/colors.md */
+  --bone: #F2EEE3;
+  --paper: #FAF7EE;
+  --ink: #0F0E0C;
+  --smoke: #6B665C;
+  --mist: #C9C3B5;
+  --signal: #DCFF1A;
+  --heat: #FF3B2E;
+
+  /* Active accent — replaced on a channel page with the channel owner's
+     accent. Every accent-using class references var(--accent), not Signal. */
+  --accent: var(--signal);
+
+  /* Type stack */
+  --font-display: 'Clash Display', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* Spacing scale — commit to this exactly */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* Layout */
+  --on-air-height: 72px;
+  --bottom-nav-height: 56px;
+  --top-nav-height: 64px;
+  --content-max: 1280px;
+}
+
+@media (min-width: 900px) {
+  :root {
+    --top-nav-height: 72px;
+  }
+}
+
+/* Base resets ======================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bone);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* App-like behaviour: prevent text selection on chrome elements */
+nav, .top-nav, .bottom-nav, .on-air-bar, .wordmark, .mono-label, .tab-row, .section-header {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+input, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* Focus ring (keyboard nav) */
+*:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.on-ink *:focus-visible {
+  outline: 2px solid var(--bone);
+  outline-offset: 2px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--mist); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--smoke); }
+
+/* ============================================================================
+   Wordmark — typeset in code, never an image. The chartreuse block is the
+   brand mark. Pulses when audio is active.
+   ============================================================================ */
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+}
+.wordmark::after {
+  content: '';
+  display: inline-block;
+  width: 0.28em;
+  height: 0.28em;
+  background: var(--signal);
+  margin-left: 0.12em;
+  align-self: flex-end;
+  margin-bottom: 0.08em;
+}
+.on-ink .wordmark { color: var(--bone); }
+.wordmark.pulsing::after {
+  animation: signal-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes signal-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ============================================================================
+   Mono labels — broadcast metadata typography. The NTS DNA strand.
+   ============================================================================ */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--smoke);
+}
+.mono-label .ink { color: var(--ink); }
+.mono-label .accent { color: var(--accent); }
+.mono-label .heat { color: var(--heat); }
+
+.mono-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+}
+.mono-meta .smoke { color: var(--smoke); }
+.mono-meta .accent { color: var(--accent); }
+
+.caption {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.caption .smoke { color: var(--smoke); }
+
+/* ============================================================================
+   Headings — Clash Display
+   ============================================================================ */
+.display-xl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(56px, 12vw, 128px);
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  color: var(--ink);
+  margin: 0;
+}
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(40px, 8vw, 72px);
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  color: var(--ink);
+  margin: 0;
+}
+.heading {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0;
+}
+.subhead {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 20px;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* The display-emphasis treatment: one word in the masthead headline gets a
+   chartreuse highlight. Used as <em class="display-emph">word</em>. */
+.display-emph {
+  font-style: normal;
+  background: var(--signal);
+  padding: 0 0.06em;
+}
+
+/* ============================================================================
+   Buttons — sharp corners, inversion-on-hover, no scale/shadow
+   ============================================================================ */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  border: 1px solid var(--ink);
+  transition: none;
+}
+.btn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.btn-fill {
+  background: var(--accent);
+  color: var(--ink);
+}
+.btn-fill:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.btn-line {
+  background: var(--bone);
+  color: var(--ink);
+}
+.btn-line:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--bone);
+}
+
+.btn-ink {
+  background: var(--ink);
+  color: var(--bone);
+}
+.btn-ink:hover:not(:disabled) {
+  filter: brightness(1.2);
+}
+
+.btn-text {
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--smoke);
+}
+.btn-text:hover:not(:disabled) {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--bone);
+  border: 1px solid var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+/* ============================================================================
+   Inputs — underline-only borders
+   ============================================================================ */
+.input-text {
+  width: 100%;
+  border-bottom: 1px solid var(--ink);
+  padding: 12px 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink);
+  background: transparent;
+}
+.input-text:focus {
+  border-bottom-width: 2px;
+  padding-bottom: 11px; /* preserve total height to avoid layout shift */
+}
+.input-text::placeholder { color: var(--smoke); }
+.input-error { border-bottom-color: var(--heat); }
+
+.input-display {
+  width: 100%;
+  border-bottom: 1px solid var(--ink);
+  padding: 12px 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  background: transparent;
+}
+.input-display:focus {
+  border-bottom-width: 2px;
+  padding-bottom: 11px;
+}
+.input-display::placeholder { color: var(--smoke); }
+
+textarea.input-textarea {
+  width: 100%;
+  border: 1px solid var(--ink);
+  padding: 12px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ============================================================================
+   Layout primitives
+   ============================================================================ */
+.app-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* Reserve room for the persistent on-air bar (always-on, never conditional) */
+  padding-bottom: var(--on-air-height);
+}
+
+@media (max-width: 599px) {
+  .app-shell {
+    /* Bottom nav stacked above on-air bar reservation on mobile */
+    padding-bottom: calc(var(--on-air-height) + var(--bottom-nav-height));
+  }
+}
+
+.page {
+  flex: 1;
+  width: 100%;
+}
+
+.container {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+@media (min-width: 900px) {
+  .container { padding: 0 64px; }
+}
+
+.rule {
+  height: 0;
+  border-bottom: 1px solid var(--ink);
+  margin: 0;
+}
+.rule-mist {
+  border-bottom-color: var(--mist);
+}
+
+/* ============================================================================
+   Cover art — square, sharp corners, with hover and active states
+   ============================================================================ */
+.cover {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--mist);
+  overflow: hidden;
+}
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cover.is-playing::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--accent);
+  z-index: 2;
+}
+
+/* Hover treatment — desktop only */
+@media (hover: hover) and (pointer: fine) {
+  .cover-hover:hover {
+    box-shadow: inset 0 0 0 1px var(--ink);
+  }
+  .cover-hover:hover .cover-play-badge {
+    opacity: 1;
+  }
+}
+.cover-play-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: var(--bone);
+  color: var(--ink);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 100ms ease-out;
+  z-index: 3;
+}
+
+/* Skeleton */
+.skeleton {
+  background: var(--mist);
+}
+.skeleton-text {
+  height: 1em;
+  background: var(--mist);
+  margin-bottom: 8px;
+}
+
+/* ============================================================================
+   Spinner (used in submitting buttons — replaces label, not size)
+   ============================================================================ */
+.spinner {
+  width: 16px;
+  height: 16px;
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   The marquee — fixed-height container, dual-content for seamless loop
+   ============================================================================ */
+.marquee-wrap {
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.marquee-inner {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 32s linear infinite;
+}
+.marquee-wrap:hover .marquee-inner {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ============================================================================
+   Numbered list (track rows etc.)
+   ============================================================================ */
+.num-row {
+  display: grid;
+  grid-template-columns: 32px 56px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--mist);
+}
+.num-row .row-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--smoke);
+}
+.num-row.is-playing .row-num { color: var(--accent); }
+.num-row .row-cover {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   Section header — `01 / LABEL  ___________________________`
+   ============================================================================ */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-header .left { display: flex; gap: 6px; align-items: baseline; }
+.section-header .num { color: var(--ink); }
+.section-header .label-text { color: var(--smoke); }
+
+/* ============================================================================
+   Empty state — sparse, declarative, signature ▪ on CTA
+   ============================================================================ */
+.empty-state {
+  padding: 96px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+.empty-state .heading { max-width: 600px; }
+.empty-state .cta {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 8px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.empty-state .cta::before {
+  content: '▪';
+  color: var(--accent);
+}
+.empty-state .cta:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+/* ============================================================================
+   Modal scaffolding
+   ============================================================================ */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 14, 12, 0.55);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 140ms ease-out;
+}
+.modal-sheet {
+  background: var(--bone);
+  border: 1px solid var(--ink);
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
+  animation: modal-in 220ms cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+.modal-sheet.wide { max-width: 720px; }
+.modal-sheet.full {
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  border: 0;
+}
+@media (max-width: 599px) {
+  .modal-sheet {
+    align-self: flex-end;
+    margin-top: auto;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    max-height: 92dvh;
+  }
+  .modal-backdrop {
+    align-items: flex-end;
+  }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--ink);
+}
+.modal-body { padding: 24px; }
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--ink);
+}
+
+/* ============================================================================
+   Misc utility
+   ============================================================================ */
+.h-full { height: 100%; }
+.text-center { text-align: center; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-6 { gap: 24px; } .gap-8 { gap: 32px; }
+.mb-2 { margin-bottom: 8px; } .mb-4 { margin-bottom: 16px; } .mb-6 { margin-bottom: 24px; } .mb-8 { margin-bottom: 32px; }
+.mt-2 { margin-top: 8px; } .mt-4 { margin-top: 16px; } .mt-6 { margin-top: 24px; } .mt-8 { margin-top: 32px; }
+.smoke { color: var(--smoke); }
+.ink { color: var(--ink); }
+.accent { color: var(--accent); }
+.bone { color: var(--bone); }
+.no-select { user-select: none; -webkit-user-select: none; }

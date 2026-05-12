@@ -1,0 +1,53 @@
+{
+  "pitch": "src/roadmap/pitch.html",
+  "lanes": [
+    {
+      "name": "Full Signal",
+      "narrative": "Close the gap between Audial and your Spotify account — ending with your full listening life, including real-time history and full-length playback, woven into your channel.",
+      "items": [
+        "spotify-connect.md",
+        "spotify-library.md",
+        "recently-spun.md"
+      ]
+    },
+    {
+      "name": "The Broadcast Moment",
+      "narrative": "Give publishing a dramatic arc — from private drafts to a deliberate go-live gesture, with notifications ensuring every broadcast reaches the people tuned in.",
+      "items": [
+        "private-sets.md",
+        "broadcast-card.md",
+        "notifications.md"
+      ]
+    },
+    {
+      "name": "Community Transmission",
+      "narrative": "Layer a social signal on top of curation — from a single intentional mark to liner-note annotations to full collaborative sets built between curators.",
+      "items": [
+        "reactions.md",
+        "drop-notes.md",
+        "collaborative-sets.md"
+      ]
+    },
+    {
+      "name": "New Frequencies",
+      "narrative": "Expand Audial beyond the browser and beyond Spotify — into Apple Music, a native mobile radio that plays through your locked screen, and embeds on any surface on the web.",
+      "items": [
+        "apple-music.md",
+        "native-mobile.md",
+        "embed-player.md"
+      ]
+    },
+    {
+      "name": "The Signal Economy",
+      "narrative": "Give curators the tools to understand their reach, surface their taste to new audiences weekly, and turn their channel into something worth paying for.",
+      "items": [
+        "channel-analytics.md",
+        "weekly-digest.md",
+        "channel-memberships.md"
+      ]
+    }
+  ],
+  "standalone": [
+    "mvp.md"
+  ]
+}

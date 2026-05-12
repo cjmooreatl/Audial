@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audial — Pitch</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bone: #F2EEE3;
+  --paper: #FAF7EE;
+  --ink: #0F0E0C;
+  --ink-soft: #2A2724;
+  --smoke: #6B665C;
+  --mist: #C9C3B5;
+  --signal: #DCFF1A;
+
+  --bg-dark: var(--ink);
+  --bg-light: var(--bone);
+}
+
+html, body {
+  height: 100svh;
+  overflow: hidden;
+  background: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--bone);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.deck { display: flex; width: max-content; height: 100svh; }
+
+.slide {
+  flex: 0 0 100vw;
+  width: 100vw;
+  height: 100svh;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.slide-dark { background: var(--ink); color: var(--bone); }
+.slide-light { background: var(--bone); color: var(--ink); }
+
+/* ===== Shared scaffold ===== */
+.shell {
+  position: absolute;
+  inset: 0;
+  padding: clamp(20px, 3.6vw, 56px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(16px, 2.4vw, 28px);
+}
+
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(9.5px, 0.95vw, 11.5px);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bar-top { padding-bottom: clamp(10px, 1.2vw, 16px); border-bottom: 1px solid currentColor; }
+.bar-bot { padding-top: clamp(10px, 1.2vw, 16px); border-top: 1px solid currentColor; }
+
+.bar > .bar-mid { opacity: 0.5; flex: 1; text-align: center; }
+.bar > span:not(.bar-mid) { display: inline-flex; align-items: center; gap: 8px; }
+
+.bar .grp { display: inline-flex; align-items: center; gap: 14px; }
+.bar .grp > .sep { opacity: 0.45; }
+
+/* Inline brand mark — Audial▪ */
+.am { display: inline-flex; align-items: baseline; gap: 4px; line-height: 1; }
+.am::after {
+  content: '';
+  display: inline-block;
+  width: 0.6em; height: 0.6em;
+  background: var(--signal);
+  align-self: flex-end;
+  margin-bottom: 0.05em;
+}
+
+/* On Air pulsing dot */
+.dot-live {
+  display: inline-block;
+  width: 7px; height: 7px;
+  background: var(--signal);
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: 1px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Editorial display headline */
+.display-h {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(36px, 6.8vw, 96px);
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+.display-h em { font-style: normal; }
+.display-h .mark {
+  background: var(--signal);
+  color: var(--ink);
+  padding: 0 0.06em;
+  margin: 0 -0.02em;
+  display: inline-block;
+}
+
+/* Body lead text */
+.lead {
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: clamp(15px, 1.4vw, 19px);
+  line-height: 1.55;
+  max-width: 56ch;
+}
+.lead.bold { font-weight: 500; color: var(--ink); }
+.slide-dark .lead.bold { color: var(--bone); }
+
+.muted { color: var(--smoke); }
+.slide-dark .muted { color: rgba(242,238,227,0.55); }
+
+/* Eyebrow / section label */
+.eyebrow {
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(10px, 1vw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrow .num {
+  display: inline-block;
+  padding: 4px 7px;
+  background: var(--ink);
+  color: var(--bone);
+  letter-spacing: 0.1em;
+}
+.slide-dark .eyebrow .num { background: var(--signal); color: var(--ink); }
+
+/* ===== Reveal ===== */
+[data-reveal] { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  [data-reveal] { opacity: 1 !important; }
+}
+
+/* ===== Progress + nav ===== */
+.progress {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; gap: 4px;
+  padding: 12px 16px; z-index: 100;
+}
+.progress-seg {
+  flex: 1; height: 2px; background: rgba(245,238,227,0.15); overflow: hidden; cursor: pointer;
+  transition: background 0.3s;
+}
+.progress-seg .fill { height: 100%; width: 0%; background: var(--bone); transition: width 0.5s ease; }
+.progress-seg.done .fill { width: 100%; }
+.progress-seg.active .fill { width: 100%; }
+.progress.light .progress-seg { background: rgba(15,14,12,0.12); }
+.progress.light .progress-seg .fill { background: var(--ink); }
+
+.tap-zones { position: fixed; inset: 0; display: flex; z-index: 50; }
+.tap-zone { height: 100%; -webkit-tap-highlight-color: transparent; }
+.tap-prev { width: 33.333%; }
+.tap-next { width: 66.667%; }
+
+.chevron {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  z-index: 100; width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: opacity 0.3s, background 0.2s;
+  background: rgba(245,238,227,0.06);
+  border: 1px solid rgba(245,238,227,0.22);
+}
+.chevron:hover { background: rgba(245,238,227,0.16); }
+.chevron svg { width: 16px; height: 16px; stroke: var(--bone); stroke-width: 1.5; fill: none; }
+.chevron-prev { left: 14px; }
+.chevron-next { right: 14px; }
+.chevron.hidden { opacity: 0; pointer-events: none; }
+.chevron.light { background: rgba(15,14,12,0.04); border-color: rgba(15,14,12,0.18); }
+.chevron.light:hover { background: rgba(15,14,12,0.1); }
+.chevron.light svg { stroke: var(--ink); }
+
+@media (max-width: 768px) {
+  .chevron { width: 34px; height: 34px; }
+  .chevron-prev { left: 8px; }
+  .chevron-next { right: 8px; }
+  .progress { padding: 10px 12px; }
+}
+
+/* ============================================ */
+/* SLIDE 1 — Title                              */
+/* ============================================ */
+.s1 { display: grid; grid-template-rows: auto 1fr auto; padding: clamp(20px, 3.6vw, 56px); }
+
+.s1 .top, .s1 .bot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(10px, 1vw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.s1 .top { padding-bottom: clamp(12px, 1.4vw, 18px); border-bottom: 1px solid var(--ink); }
+.s1 .bot { padding-top: clamp(12px, 1.4vw, 18px); border-top: 1px solid var(--ink); }
+.s1 .top .mid, .s1 .bot .mid { opacity: 0.5; }
+
+.s1 .center {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: clamp(16px, 2.4vw, 32px);
+  text-align: center;
+  padding: clamp(12px, 2vw, 24px) 0;
+}
+
+.wordmark-xl {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 700;
+  font-size: clamp(88px, 22vw, 280px);
+  letter-spacing: -0.06em;
+  line-height: 0.85;
+  color: var(--ink);
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.04em;
+}
+.wordmark-xl::after {
+  content: '';
+  display: inline-block;
+  width: 0.22em;
+  height: 0.22em;
+  background: var(--signal);
+  align-self: flex-end;
+  margin-bottom: 0.08em;
+  flex: 0 0 auto;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.s1 .tagline {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 500;
+  font-size: clamp(20px, 3.2vw, 40px);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+@media (max-width: 600px) {
+  .s1 .top span:nth-child(2), .s1 .bot span:nth-child(2) { display: none; }
+}
+
+/* ============================================ */
+/* SLIDE 2 — Problem                            */
+/* ============================================ */
+.s2-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(28px, 4vw, 56px); padding-top: clamp(8px, 2vw, 24px); }
+.s2-grid { display: grid; grid-template-columns: 1fr; gap: clamp(28px, 3.6vw, 48px); align-items: start; }
+.s2-body { display: flex; flex-direction: column; gap: clamp(14px, 1.6vw, 22px); max-width: 60ch; }
+.s2-rule { width: 60px; height: 1px; background: currentColor; opacity: 0.4; margin-top: 8px; }
+
+@media (min-width: 1100px) {
+  .s2-grid { grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr); gap: clamp(40px, 6vw, 96px); align-items: end; }
+}
+
+/* ============================================ */
+/* SLIDE 3 — Insight                            */
+/* ============================================ */
+.s3-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(32px, 4.5vw, 56px); padding-top: clamp(8px, 2vw, 24px); }
+.s3-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  border-top: 1px solid rgba(242,238,227,0.18);
+}
+.s3-col {
+  padding: clamp(20px, 2.4vw, 32px) 0;
+  border-bottom: 1px solid rgba(242,238,227,0.18);
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: clamp(16px, 2.4vw, 32px);
+  align-items: baseline;
+}
+.s3-col .n {
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(11px, 1.1vw, 13px);
+  font-weight: 500;
+  color: var(--signal);
+  letter-spacing: 0.1em;
+  padding-top: 0.4em;
+}
+.s3-col .t {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 500;
+  font-size: clamp(20px, 2.6vw, 32px);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.s3-col .t em { font-style: normal; color: var(--signal); }
+
+/* ============================================ */
+/* SLIDE 4 — What Audial Is                     */
+/* ============================================ */
+.s4-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(32px, 4vw, 48px); padding-top: clamp(8px, 2vw, 24px); }
+.s4-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(28px, 4vw, 56px);
+  align-items: start;
+}
+.s4-body { display: flex; flex-direction: column; gap: clamp(14px, 1.6vw, 20px); }
+.s4-tagrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(10px, 1.4vw, 16px);
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(10.5px, 1.1vw, 13px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  margin-top: clamp(12px, 1.6vw, 20px);
+}
+.s4-tagrow .ng { text-decoration: line-through; opacity: 0.7; }
+.s4-tagrow .pos { color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
+.s4-tagrow .pos::before { content: ''; display: inline-block; width: 7px; height: 7px; background: var(--signal); }
+
+.now-broadcast {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+.nb-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ink);
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.nb-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(15,14,12,0.12);
+}
+.nb-row:last-child { border-bottom: 0; }
+.nb-thumb { width: 56px; height: 56px; object-fit: cover; display: block; }
+.nb-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nb-title { font-family: 'Clash Display', sans-serif; font-weight: 600; font-size: clamp(14px, 1.3vw, 17px); letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb-by { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--smoke); }
+.nb-by b { color: var(--ink); font-weight: 500; }
+.nb-dur { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink); letter-spacing: 0.06em; }
+.nb-row.live .nb-thumb { box-shadow: inset 2px 0 0 var(--signal); }
+
+@media (min-width: 1000px) {
+  .s4-grid { grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.85fr); gap: clamp(40px, 5vw, 80px); align-items: center; }
+}
+
+/* ============================================ */
+/* SLIDE 5 — Three Surfaces                     */
+/* ============================================ */
+.s5-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(28px, 4vw, 48px); padding-top: clamp(8px, 2vw, 16px); }
+.s5-headrow { display: flex; flex-wrap: wrap; align-items: end; gap: clamp(16px, 3vw, 40px); justify-content: space-between; }
+.s5-h {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(28px, 4.4vw, 64px);
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+  max-width: 18ch;
+}
+.s5-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(24px, 2.4vw, 32px);
+}
+.s5-col {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.4vw, 18px);
+  padding: clamp(20px, 2vw, 28px) 0 0 0;
+  border-top: 1px solid var(--ink);
+}
+.s5-col .label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--smoke);
+  display: flex; gap: 10px;
+}
+.s5-col .label .n { color: var(--ink); }
+.s5-col .t {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(24px, 2.6vw, 36px);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ink);
+}
+.s5-col .b {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(13.5px, 1vw, 15px);
+  line-height: 1.55;
+  color: var(--ink);
+}
+.s5-col .img-wrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.s5-col .img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+@media (min-width: 900px) {
+  .s5-cols { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* ============================================ */
+/* SLIDE 6 — Language                           */
+/* ============================================ */
+.s6-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(24px, 3.5vw, 44px); padding-top: clamp(8px, 2vw, 16px); }
+.s6-h {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(28px, 4.4vw, 60px);
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+  max-width: 20ch;
+}
+.lang-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: clamp(32px, 5vw, 80px);
+  row-gap: 0;
+  border-top: 1px solid var(--ink);
+}
+.lang-row {
+  display: grid;
+  grid-template-columns: 1fr 24px 1fr;
+  gap: clamp(8px, 1.4vw, 16px);
+  align-items: baseline;
+  padding: clamp(10px, 1.2vw, 14px) 0;
+  border-bottom: 1px solid rgba(15,14,12,0.18);
+}
+.lang-from {
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: clamp(15px, 1.5vw, 19px);
+  color: var(--smoke);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-underline-offset: -0.05em;
+}
+.lang-arrow {
+  font-family: 'Geist Mono', monospace;
+  color: var(--ink);
+  opacity: 0.4;
+  text-align: center;
+  font-size: clamp(11px, 1vw, 13px);
+}
+.lang-to {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(17px, 1.8vw, 24px);
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.s6-foot-line {
+  font-family: 'Inter', sans-serif;
+  font-style: italic;
+  font-size: clamp(13px, 1.1vw, 15px);
+  color: var(--smoke);
+  max-width: 50ch;
+}
+
+@media (min-width: 900px) {
+  .lang-list { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================ */
+/* SLIDE 7 — Social Fabric (DARK)               */
+/* ============================================ */
+.s7-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(28px, 4vw, 48px); padding-top: clamp(8px, 2vw, 16px); }
+.s7-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  border-top: 1px solid rgba(242,238,227,0.18);
+  border-left: 1px solid rgba(242,238,227,0.18);
+}
+.s7-cell {
+  padding: clamp(20px, 2.4vw, 32px);
+  border-right: 1px solid rgba(242,238,227,0.18);
+  border-bottom: 1px solid rgba(242,238,227,0.18);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.4vw, 16px);
+  min-height: clamp(170px, 18vw, 220px);
+}
+.s7-cell .lab {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  display: flex; gap: 10px;
+  color: rgba(242,238,227,0.55);
+}
+.s7-cell .lab .n { color: var(--signal); }
+.s7-cell .t {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(22px, 2.4vw, 30px);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--bone);
+}
+.s7-cell .b {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(13px, 1vw, 14.5px);
+  line-height: 1.5;
+  color: rgba(242,238,227,0.7);
+  margin-top: auto;
+}
+
+@media (min-width: 800px) {
+  .s7-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================ */
+/* SLIDE 8 — Roadmap                            */
+/* ============================================ */
+.s8-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(20px, 3vw, 36px); padding-top: clamp(8px, 2vw, 16px); }
+.s8-h {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(28px, 4.2vw, 56px);
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+  max-width: 20ch;
+}
+.s8-list { display: flex; flex-direction: column; border-top: 1px solid var(--ink); }
+.s8-row {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: clamp(16px, 2.4vw, 32px);
+  align-items: baseline;
+  padding: clamp(14px, 1.6vw, 20px) 0;
+  border-bottom: 1px solid var(--ink);
+}
+.s8-row .num {
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(11px, 1vw, 13px);
+  letter-spacing: 0.12em;
+  color: var(--smoke);
+  padding-top: 0.45em;
+}
+.s8-row .body { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.s8-row .t {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(18px, 2.2vw, 28px);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.s8-row .b {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(13px, 1vw, 15px);
+  line-height: 1.5;
+  color: var(--smoke);
+  max-width: 70ch;
+}
+
+@media (min-width: 900px) {
+  .s8-row { grid-template-columns: 80px minmax(0, 22ch) minmax(0, 1fr); }
+  .s8-row .body { display: contents; }
+  .s8-row .t { padding-right: clamp(16px, 2.4vw, 32px); }
+}
+
+/* ============================================ */
+/* SLIDE 9 — Vision                             */
+/* ============================================ */
+.s9-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(28px, 4vw, 48px); padding-top: clamp(8px, 2vw, 16px); }
+.s9-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(28px, 4vw, 56px);
+  align-items: center;
+}
+.s9-h {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 600;
+  font-size: clamp(40px, 8vw, 128px);
+  letter-spacing: -0.045em;
+  line-height: 0.92;
+}
+.s9-h .mark {
+  background: var(--signal);
+  color: var(--ink);
+  padding: 0 0.06em;
+  display: inline-block;
+}
+.s9-body { display: flex; flex-direction: column; gap: clamp(14px, 1.6vw, 22px); max-width: 60ch; }
+.s9-aside { display: flex; flex-direction: column; gap: 16px; }
+.s9-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  max-width: 360px;
+}
+.s9-onair {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(11px, 1.1vw, 13px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+@media (min-width: 1000px) {
+  .s9-grid { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr); }
+}
+
+/* ============================================ */
+/* SLIDE 10 — CTA                               */
+/* ============================================ */
+.s10-main {
+  display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: center;
+  gap: clamp(20px, 3vw, 40px);
+  padding-top: clamp(8px, 2vw, 16px);
+}
+.s10-h {
+  font-family: 'Clash Display', sans-serif;
+  font-weight: 700;
+  font-size: clamp(120px, 28vw, 380px);
+  letter-spacing: -0.06em;
+  line-height: 0.85;
+  color: var(--signal);
+  text-transform: none;
+  display: inline-flex;
+  align-items: baseline;
+}
+.s10-h .dot {
+  display: inline-block;
+  width: 0.18em; height: 0.18em;
+  background: var(--signal);
+  margin-left: 0.05em;
+  align-self: flex-end;
+  margin-bottom: 0.12em;
+}
+.s10-url {
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(16px, 2vw, 26px);
+  letter-spacing: 0.04em;
+  color: var(--bone);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.s10-url::before {
+  content: '';
+  display: inline-block;
+  width: clamp(28px, 4vw, 48px);
+  height: 1px;
+  background: var(--bone);
+}
+.s10-sub {
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(10.5px, 1vw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(242,238,227,0.55);
+  max-width: 60ch;
+  line-height: 1.7;
+}
+
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<div class="deck" id="deck">
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 1 — TITLE                                        -->
+  <!-- ====================================================== -->
+  <div class="slide slide-light s1" data-index="0">
+    <div class="top" data-reveal>
+      <span class="am">Audial</span>
+      <span class="mid">Pilot Issue — 001</span>
+      <span>May 2026</span>
+    </div>
+
+    <div class="center">
+      <h1 class="wordmark-xl" data-reveal>Audial</h1>
+      <p class="tagline" data-reveal>Broadcast Your Taste.</p>
+    </div>
+
+    <div class="bot" data-reveal>
+      <span><span class="dot-live"></span>The Wire is live</span>
+      <span class="mid">Transmission 001 / vol. 01</span>
+      <span>A community for curators</span>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 2 — PROBLEM                                      -->
+  <!-- ====================================================== -->
+  <div class="slide slide-light" data-index="1">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">02</span> The Problem</span></span>
+        <span>fig. 01 — Solitary listening</span>
+      </div>
+
+      <div class="s2-main">
+        <h1 class="display-h" data-reveal>
+          Streaming gave us<br>everything. It gave us<br><span class="mark">no one</span> to listen with.
+        </h1>
+
+        <div class="s2-grid">
+          <div class="s2-body">
+            <p class="lead" data-reveal>The algorithm replaced the record shop employee. The platform replaced the DJ. We have 100 million songs and no culture around how we choose them.</p>
+            <p class="lead" data-reveal>Playlists are the most intimate cultural objects online — and they live in a black box. Unshareable. Unattributed. Unseen.</p>
+          </div>
+          <div data-reveal>
+            <div class="s2-rule"></div>
+            <p class="lead bold" style="margin-top: 18px;">The person behind the recommendation has been deleted.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>02 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 3 — INSIGHT                                      -->
+  <!-- ====================================================== -->
+  <div class="slide slide-dark" data-index="2">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">03</span> The Insight</span></span>
+        <span>fig. 02 — On taste</span>
+      </div>
+
+      <div class="s3-main">
+        <h1 class="display-h" data-reveal>
+          Taste is social.<br>Platforms made it <em style="color:var(--signal); font-style:normal;">solitary.</em>
+        </h1>
+
+        <div class="s3-cols">
+          <div class="s3-col" data-reveal>
+            <span class="n">i.</span>
+            <p class="t">"What are you listening to?" has <em>no good answer</em> anymore.</p>
+          </div>
+          <div class="s3-col" data-reveal>
+            <span class="n">ii.</span>
+            <p class="t">The curator — the friend, the DJ, the record shop employee — has <em>no home</em>.</p>
+          </div>
+          <div class="s3-col" data-reveal>
+            <span class="n">iii.</span>
+            <p class="t">The playlist is more personal than a post. It has <em>no place</em> to live.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>03 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 4 — WHAT AUDIAL IS                               -->
+  <!-- ====================================================== -->
+  <div class="slide slide-light" data-index="3">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">04</span> What Audial Is</span></span>
+        <span>The turn</span>
+      </div>
+
+      <div class="s4-main">
+        <h1 class="display-h" data-reveal>
+          A publication for taste.
+        </h1>
+
+        <div class="s4-grid">
+          <div class="s4-body">
+            <div class="s4-tagrow" data-reveal>
+              <span class="ng">Streaming service</span>
+              <span class="ng">Social network</span>
+              <span class="pos">A publication</span>
+            </div>
+            <p class="lead" data-reveal>Curators compile sets. They broadcast them on their channel. Listeners tune in, file tracks, and discover new voices through a constant on-platform radio called <b>The Wire</b>.</p>
+            <p class="lead" data-reveal>Every set is attributed. Every channel has a voice. Every listen is a signal that travels back through the community.</p>
+            <p class="lead bold" data-reveal>Curation is the product. The curator is the author.</p>
+          </div>
+
+          <div class="now-broadcast" data-reveal>
+            <div class="nb-head">
+              <span><span class="dot-live"></span>Now Broadcasting</span>
+              <span style="opacity:0.5">23:14 GMT</span>
+            </div>
+            <div class="nb-row live">
+              <img class="nb-thumb" src="https://i.mscdn.ai/f67ecad1-beb0-4137-8dff-718c7e17656f/generated-images/99ae35e7-d191-4898-9dc3-0401ea519508.png?w=200&fm=webp" alt="" width="56" height="56" loading="eager">
+              <div class="nb-meta">
+                <span class="nb-title">Concrete Hours</span>
+                <span class="nb-by">by <b>moss.fm</b></span>
+              </div>
+              <span class="nb-dur">52:18</span>
+            </div>
+            <div class="nb-row">
+              <img class="nb-thumb" src="https://i.mscdn.ai/f67ecad1-beb0-4137-8dff-718c7e17656f/generated-images/f329051a-8035-4832-8d8d-7b328706925f.png?w=200&fm=webp" alt="" width="56" height="56" loading="eager">
+              <div class="nb-meta">
+                <span class="nb-title">Dub Architecture</span>
+                <span class="nb-by">by <b>kestrel</b></span>
+              </div>
+              <span class="nb-dur">1:14:06</span>
+            </div>
+            <div class="nb-row">
+              <img class="nb-thumb" src="https://i.mscdn.ai/f67ecad1-beb0-4137-8dff-718c7e17656f/generated-images/736c5f12-bdf6-42b2-91ae-b0520837f77a.png?w=200&fm=webp" alt="" width="56" height="56" loading="eager">
+              <div class="nb-meta">
+                <span class="nb-title">Crate Diggers, vol. iv</span>
+                <span class="nb-by">by <b>halftones</b></span>
+              </div>
+              <span class="nb-dur">38:42</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>04 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 5 — THREE SURFACES                               -->
+  <!-- ====================================================== -->
+  <div class="slide slide-light" data-index="4">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">05</span> The Product</span></span>
+        <span>Three pages. One publication.</span>
+      </div>
+
+      <div class="s5-main">
+        <div class="s5-headrow">
+          <h1 class="s5-h" data-reveal>Three pages.<br>One publication.</h1>
+          <p class="lead muted" data-reveal style="max-width: 38ch;">Each surface does one job, with conviction. Together they form a single editorial object — a printed schedule made interactive.</p>
+        </div>
+
+        <div class="s5-cols">
+          <div class="s5-col" data-reveal>
+            <div class="img-wrap"><img src="https://i.mscdn.ai/f67ecad1-beb0-4137-8dff-718c7e17656f/generated-images/c234c596-734e-4266-bf25-25546eede344.png?w=800&fm=webp" alt="" loading="eager"></div>
+            <span class="label"><span class="n">01</span> Home</span>
+            <h3 class="t">A magazine-style feed.</h3>
+            <p class="b">Four tabs: Subscribed, On Rotation, Heavy Rotation, Drift. Asymmetric layouts, editorial headlines that rotate daily, sets from the community at every scale.</p>
+          </div>
+          <div class="s5-col" data-reveal>
+            <div class="img-wrap"><img src="https://i.mscdn.ai/f67ecad1-beb0-4137-8dff-718c7e17656f/generated-images/ef409b26-2dea-431c-93c4-7b12256597dd.png?w=800&fm=webp" alt="" loading="eager"></div>
+            <span class="label"><span class="n">02</span> Channel</span>
+            <h3 class="t">A curator's broadcast station.</h3>
+            <p class="b">Accent color, featured set, co-signed artists, selections. Every channel is a distinct editorial identity. Land on one and you know who you're dealing with.</p>
+          </div>
+          <div class="s5-col" data-reveal>
+            <div class="img-wrap"><img src="https://i.mscdn.ai/f67ecad1-beb0-4137-8dff-718c7e17656f/generated-images/7b2e2c54-9d8b-40a7-a7d5-e688166e51c3.png?w=800&fm=webp" alt="" loading="eager"></div>
+            <span class="label"><span class="n">03</span> Search + The Wire</span>
+            <h3 class="t">Discovery and radio in one place.</h3>
+            <p class="b">Search across sets, channels, and tracks. The Wire runs constantly in the right column — a live stream built entirely from community-compiled tracks. File without stopping the broadcast.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>05 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 6 — LANGUAGE                                     -->
+  <!-- ====================================================== -->
+  <div class="slide slide-light" data-index="5">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">06</span> The Language</span></span>
+        <span>Editorial markup</span>
+      </div>
+
+      <div class="s6-main">
+        <h1 class="s6-h" data-reveal>It speaks like a broadcast,<br>not an app.</h1>
+
+        <div class="lang-list" data-reveal>
+          <div class="lang-row"><span class="lang-from">Playlist</span><span class="lang-arrow">→</span><span class="lang-to">Set</span></div>
+          <div class="lang-row"><span class="lang-from">Profile</span><span class="lang-arrow">→</span><span class="lang-to">Channel</span></div>
+          <div class="lang-row"><span class="lang-from">Create playlist</span><span class="lang-arrow">→</span><span class="lang-to">Compile a set</span></div>
+          <div class="lang-row"><span class="lang-from">Followers</span><span class="lang-arrow">→</span><span class="lang-to">Tuned in</span></div>
+          <div class="lang-row"><span class="lang-from">Save to playlist</span><span class="lang-arrow">→</span><span class="lang-to">File to set</span></div>
+          <div class="lang-row"><span class="lang-from">Search radio</span><span class="lang-arrow">→</span><span class="lang-to">The Wire</span></div>
+          <div class="lang-row"><span class="lang-from">Sign up</span><span class="lang-arrow">→</span><span class="lang-to">Tune in</span></div>
+          <div class="lang-row"><span class="lang-from">Sign out</span><span class="lang-arrow">→</span><span class="lang-to">Sign off</span></div>
+          <div class="lang-row"><span class="lang-from">Featured playlist</span><span class="lang-arrow">→</span><span class="lang-to">Now Playing</span></div>
+          <div class="lang-row"><span class="lang-from">Trending</span><span class="lang-arrow">→</span><span class="lang-to">On Rotation</span></div>
+        </div>
+
+        <p class="s6-foot-line" data-reveal>The terminology is part of the product, not decoration.</p>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>06 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 7 — SOCIAL FABRIC (DARK)                         -->
+  <!-- ====================================================== -->
+  <div class="slide slide-dark" data-index="6">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">07</span> The Social Fabric</span></span>
+        <span>Why it sticks</span>
+      </div>
+
+      <div class="s7-main">
+        <h1 class="display-h" data-reveal>
+          Every listen is<br>a <span class="mark">transmission.</span>
+        </h1>
+
+        <div class="s7-grid">
+          <div class="s7-cell" data-reveal>
+            <span class="lab"><span class="n">01</span> Subscriptions</span>
+            <h3 class="t">Tune in to a channel.</h3>
+            <p class="b">Their sets feed your Subscribed tab. Their broadcasts reach you.</p>
+          </div>
+          <div class="s7-cell" data-reveal>
+            <span class="lab"><span class="n">02</span> Spins</span>
+            <h3 class="t">Every preview logs a spin.</h3>
+            <p class="b">Spins drive On Rotation. Your taste feeds the algorithm that shapes everyone's feed.</p>
+          </div>
+          <div class="s7-cell" data-reveal>
+            <span class="lab"><span class="n">03</span> Marks</span>
+            <h3 class="t">One intentional gesture per set.</h3>
+            <p class="b">Not a like. A notch. You were here, this landed.</p>
+          </div>
+          <div class="s7-cell" data-reveal>
+            <span class="lab"><span class="n">04</span> Co-signs</span>
+            <h3 class="t">Curators name the artists they ride for.</h3>
+            <p class="b">Displayed as a strip on their channel. Taste made visible.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>07 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 8 — ROADMAP                                      -->
+  <!-- ====================================================== -->
+  <div class="slide slide-light" data-index="7">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">08</span> Where It's Going</span></span>
+        <span>The schedule ahead</span>
+      </div>
+
+      <div class="s8-main">
+        <h1 class="s8-h" data-reveal>The first transmission is live.<br>Here's what broadcasts next.</h1>
+
+        <div class="s8-list">
+          <div class="s8-row" data-reveal>
+            <span class="num">01 ／</span>
+            <div class="body">
+              <h3 class="t">Full Signal</h3>
+              <p class="b">Connect your Spotify account. Browse your own playlists. Show what you've been spinning on your channel. Full playback for Premium subscribers.</p>
+            </div>
+          </div>
+          <div class="s8-row" data-reveal>
+            <span class="num">02 ／</span>
+            <div class="body">
+              <h3 class="t">The Broadcast Moment</h3>
+              <p class="b">Private drafts. A deliberate go-live gesture. Notifications when a channel you subscribe to drops something new.</p>
+            </div>
+          </div>
+          <div class="s8-row" data-reveal>
+            <span class="num">03 ／</span>
+            <div class="body">
+              <h3 class="t">Community Transmission</h3>
+              <p class="b">Marks on sets. Liner notes dropped on tracks. Collaborative sets co-credited between two curators.</p>
+            </div>
+          </div>
+          <div class="s8-row" data-reveal>
+            <span class="num">04 ／</span>
+            <div class="body">
+              <h3 class="t">New Frequencies</h3>
+              <p class="b">Apple Music as a second source. A native mobile app where The Wire plays from your locked screen. Set embeds for any website.</p>
+            </div>
+          </div>
+          <div class="s8-row" data-reveal>
+            <span class="num">05 ／</span>
+            <div class="body">
+              <h3 class="t">The Signal Economy</h3>
+              <p class="b">Private analytics for curators. A weekly editorial email. Channel memberships — listeners supporting curators directly, with 90% going to the creator.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>08 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 9 — VISION                                       -->
+  <!-- ====================================================== -->
+  <div class="slide slide-light" data-index="8">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">09</span> The Vision</span></span>
+        <span>Long form</span>
+      </div>
+
+      <div class="s9-main">
+        <div class="s9-grid">
+          <div class="s9-body">
+            <h1 class="s9-h" data-reveal>The internet's<br><span class="mark">taste layer.</span></h1>
+            <p class="lead" data-reveal>Not owned by any streaming service. Not beholden to any recommendation algorithm. A place where curation is the product and the curator is the author.</p>
+            <p class="lead bold" data-reveal>The record shop never went away. It moved online and lost its voice.</p>
+            <p class="lead" data-reveal>Audial gives it back.</p>
+          </div>
+          <div class="s9-aside" data-reveal>
+            <img class="s9-img" src="https://i.mscdn.ai/f67ecad1-beb0-4137-8dff-718c7e17656f/generated-images/736c5f12-bdf6-42b2-91ae-b0520837f77a.png?w=720&fm=webp" alt="" loading="eager">
+            <span class="s9-onair"><span class="dot-live"></span>The Wire is live</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>09 / 10</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- SLIDE 10 — CTA                                         -->
+  <!-- ====================================================== -->
+  <div class="slide slide-dark" data-index="9">
+    <div class="shell">
+      <div class="bar bar-top" data-reveal>
+        <span class="grp"><span class="eyebrow"><span class="num">10</span> Tune in</span></span>
+        <span><span class="dot-live"></span>The Wire is live</span>
+      </div>
+
+      <div class="s10-main">
+        <h1 class="s10-h" data-reveal>Tune in<span class="dot"></span></h1>
+        <span class="s10-url" data-reveal>audial.fm</span>
+        <p class="s10-sub" data-reveal>A community for people who care about playlists.<br>Compile. Share. Drift.</p>
+      </div>
+
+      <div class="bar bar-bot" data-reveal>
+        <span class="am">Audial</span>
+        <span>10 / 10 — Fin.</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tap-zones">
+  <div class="tap-zone tap-prev" id="tapPrev"></div>
+  <div class="tap-zone tap-next" id="tapNext"></div>
+</div>
+
+<div class="chevron chevron-prev hidden" id="chevronPrev">
+  <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+</div>
+<div class="chevron chevron-next" id="chevronNext">
+  <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"></polyline></svg>
+</div>
+
+<script>
+(function() {
+  const deck = document.getElementById('deck');
+  const slides = document.querySelectorAll('.slide');
+  const totalSlides = slides.length;
+  let current = 0;
+  let isAnimating = false;
+
+  const tapPrev = document.getElementById('tapPrev');
+  const tapNext = document.getElementById('tapNext');
+  const progress = document.getElementById('progress');
+  const chevronPrev = document.getElementById('chevronPrev');
+  const chevronNext = document.getElementById('chevronNext');
+
+  for (let i = 0; i < totalSlides; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'progress-seg' + (i === 0 ? ' active' : '');
+    seg.innerHTML = '<div class="fill"></div>';
+    seg.addEventListener('click', () => goTo(i));
+    progress.appendChild(seg);
+  }
+
+  function updateNav() {
+    const segs = progress.querySelectorAll('.progress-seg');
+    segs.forEach((s, i) => {
+      s.classList.toggle('done', i < current);
+      s.classList.toggle('active', i === current);
+    });
+
+    chevronPrev.classList.toggle('hidden', current === 0);
+    chevronNext.classList.toggle('hidden', current === totalSlides - 1);
+
+    const s = slides[current];
+    const isLight = s.classList.contains('slide-light');
+    progress.classList.toggle('light', isLight);
+    chevronPrev.classList.toggle('light', isLight);
+    chevronNext.classList.toggle('light', isLight);
+  }
+
+  const revealed = new Set();
+  function revealSlide(index) {
+    if (revealed.has(index)) return;
+    revealed.add(index);
+    const els = slides[index].querySelectorAll('[data-reveal]');
+    els.forEach((el, i) => {
+      const delay = (parseFloat(el.dataset.reveal) || 0) + i * 0.05;
+      gsap.fromTo(el,
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.55, delay, ease: 'power2.out' }
+      );
+    });
+  }
+
+  function goTo(index) {
+    if (index === current || isAnimating || index < 0) return;
+    if (index >= totalSlides) {
+      window.parent.postMessage({ type: 'pitch-deck-complete' }, '*');
+      return;
+    }
+    isAnimating = true;
+    current = index;
+    updateNav();
+
+    gsap.to(deck, {
+      x: -current * window.innerWidth,
+      duration: 0.45,
+      ease: 'power2.inOut',
+      onComplete: () => {
+        revealSlide(current);
+        isAnimating = false;
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); goTo(current + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goTo(current - 1); }
+  });
+
+  tapPrev.addEventListener('click', () => goTo(current - 1));
+  tapNext.addEventListener('click', () => goTo(current + 1));
+  chevronPrev.addEventListener('click', (e) => { e.stopPropagation(); goTo(current - 1); });
+  chevronNext.addEventListener('click', (e) => { e.stopPropagation(); goTo(current + 1); });
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  document.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+    if (dx < 0) goTo(current + 1);
+    else goTo(current - 1);
+  }, { passive: true });
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => gsap.set(deck, { x: -current * window.innerWidth }), 100);
+  });
+
+  gsap.set(deck, { x: 0 });
+  updateNav();
+  revealed.add(0);
+  slides[0].querySelectorAll('[data-reveal]').forEach(el => { el.style.opacity = 1; });
+})();
+</script>
+
+</body>
+</html>

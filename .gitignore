@@ -1,0 +1,13 @@
+node_modules/
+
+# Sandbox runtime state — restored from draft snapshots, not project history
+.logs/
+.sandbox-state.json
+.remy-session.json
+.remy-stats.json
+.remy-design-sample.json
+.remy-plan.md
+.remy-brand.json
+.remy-brand.cache.json
+.remy-notes.md
+.project-status.json
