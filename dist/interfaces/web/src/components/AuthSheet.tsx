@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { auth as authSdk } from '@mindstudio-ai/interface';
+import { supabase } from '../lib/supabase';
 import { Modal } from './Modal';
 import { Spinner } from './Spinner';
 import { AccentPicker } from './AccentPicker';
@@ -20,7 +20,7 @@ export function AuthSheet() {
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [verificationId, setVerificationId] = useState('');
-  const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
+  const [code, setCode] = useState<string[]>(['', '', '', '', '', '', '', '']);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -47,7 +47,7 @@ export function AuthSheet() {
     } else {
       setEmail('');
       setVerificationId('');
-      setCode(['', '', '', '', '', '']);
+      setCode(['', '', '', '', '', '', '', '']);
       setHandle('');
       setDisplayName('');
       setNotes('');
@@ -60,7 +60,15 @@ export function AuthSheet() {
     setError(null);
     setSubmitting(true);
     try {
-      const { verificationId } = await authSdk.sendEmailCode(email.trim());
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+      })
+      
+      if (error) {
+        console.error(error)
+        alert(error.message)
+        return
+      };
       setVerificationId(verificationId);
       setStep('code');
     } catch (err: any) {
@@ -78,15 +86,15 @@ export function AuthSheet() {
     const next = [...code];
     next[i] = cleaned;
     setCode(next);
-    if (cleaned && i < 5) codeRefs.current[i + 1]?.focus();
+    if (cleaned && i < 7) codeRefs.current[i + 1]?.focus();
     // Auto-submit when full
-    if (next.every((c) => c) && next.join('').length === 6) {
+    if (next.every((c) => c) && next.join('').length === 8) {
       submitCode(next.join(''));
     }
   };
   const handleCodePaste = (i: number, e: React.ClipboardEvent) => {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length === 6) {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 8);
+    if (pasted.length === 8) {
       e.preventDefault();
       const next = pasted.split('');
       setCode(next);
@@ -103,7 +111,17 @@ export function AuthSheet() {
     setError(null);
     setSubmitting(true);
     try {
-      await authSdk.verifyEmailCode(verificationId, codeStr);
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: codeStr,
+        type: 'email',
+      })
+      
+      if (error) {
+        console.error(error)
+        alert(error.message)
+        return
+        };
       setSuccess(true);
       // Slight pause so the success animation registers
       window.setTimeout(async () => {
@@ -122,7 +140,7 @@ export function AuthSheet() {
       else if (err?.code === 'verification_expired') setError('Code expired. Resend.');
       else if (err?.code === 'max_attempts_exceeded') setError('Too many attempts. Resend.');
       else setError(err?.message ?? 'Signal lost. Retry.');
-      setCode(['', '', '', '', '', '']);
+      setCode(['', '', '', '', '', '', '', '']);
       codeRefs.current[0]?.focus();
     } finally {
       setSubmitting(false);
@@ -162,18 +180,37 @@ export function AuthSheet() {
     setError(null);
     setSubmitting(true);
     try {
-      await api.completeOnboarding({
-        handle: handle.trim().toLowerCase(),
-        displayName: displayName.trim(),
-        notes: notes.trim() || undefined,
-        accentColor: accent,
-      });
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error: dbError } = await supabase
+        .from('channels')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          handle: handle.trim().toLowerCase(),
+          display_name: displayName.trim(),
+          notes: notes.trim() || null,
+          accent_color: accent,
+          onboarding_complete: true,
+        });
+
       await refreshAuth();
+
       intent?.();
+
       closeAuth();
+      
     } catch (err: any) {
-      if (err?.code === 'handle_taken') setError('Handle is in use. Try another.');
-      else setError(err?.message ?? 'Signal lost. Retry.');
+      if (err?.code === '23505') 
+        setError('Handle is in use. Try another.');
+      else 
+        setError(err?.message ?? 'Signal lost. Retry.');
     } finally {
       setSubmitting(false);
     }

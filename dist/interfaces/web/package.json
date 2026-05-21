@@ -13,6 +13,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@mindstudio-ai/interface": "^0.1.4",
+    "@supabase/supabase-js": "^2.106.0",
     "@tabler/icons-react": "^3.34.0",
     "motion": "^12.12.1",
     "react": "^19.2.5",
