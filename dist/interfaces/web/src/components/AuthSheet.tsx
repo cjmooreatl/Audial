@@ -5,7 +5,6 @@ import { Spinner } from './Spinner';
 import { AccentPicker } from './AccentPicker';
 import { useUI } from '../store/ui';
 import { useAuth } from '../store/auth';
-import api from '../api';
 
 type Step = 'email' | 'code' | 'channel';
 
@@ -163,14 +162,25 @@ export function AuthSheet() {
     }
     setHandleStatus('checking');
     handleCheckTimer.current = window.setTimeout(async () => {
-      try {
-        await api.getChannel({ handle: trimmed });
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('handle', trimmed)
+        .maybeSingle();
+      
+      if (error) {
+        console.error(error);
+        setHandleStatus('idle');
+        return;
+      }
+
+      if (data) {
         setHandleStatus('taken');
-      } catch {
-        // Not found = available
+      } else {
         setHandleStatus('available');
       }
     }, 500);
+    
     return () => {
       if (handleCheckTimer.current) window.clearTimeout(handleCheckTimer.current);
     };
@@ -205,7 +215,7 @@ export function AuthSheet() {
       intent?.();
 
       closeAuth();
-      
+
     } catch (err: any) {
       if (err?.code === '23505') 
         setError('Handle is in use. Try another.');

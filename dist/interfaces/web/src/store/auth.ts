@@ -33,17 +33,33 @@ export const useAuth = create<AuthState>((set) => ({
         return;
       }
 
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        set({
+          isReady: true,
+          isAuthenticated: true,
+          channel: null, 
+        });
+
+        return;
+      }
+
       const channel: CurrentChannel = {
-        id: user.id,
-        email: user.email || '',
-        handle: null,
-        displayName: null,
-        notes: null,
-        accentColor: '#000000',
-        featuredSetId: null,
+        id: profile.id,
+        email: profile.email,
+        handle: profile.handle,
+        displayName: profile.display_name,
+        notes: profile.notes,
+        accentColor: profile.accent_color,
+        featuredSetId: profile.featured_set_id,
         coSigns: [],
-        avatarUrl: null,
-        onboardingComplete: false,
+        avatarUrl: profile.avatar_url,
+        onboardingComplete: profile.onboarding_complete,
         counts: { sets: 0, tunedIn: 0, tunedTo: 0 },
       };
 

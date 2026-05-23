@@ -12,6 +12,7 @@ import { useAuth } from '../store/auth';
 import { useUI } from '../store/ui';
 import { useAudio } from '../store/audio';
 import { formatDuration } from '../brand/format';
+import { supabase } from '../lib/supabase';
 
 // Stagger config for the channel-entry "tuning in" choreography. Each section
 // fades in with a left-to-right rule animation that feels like ink being laid
@@ -73,8 +74,46 @@ export function ChannelPage() {
   }, [handleParam, isAuth, myChannel, navigate, openAuth]);
 
   const { data, error, mutate, isLoading } = useSWR(
-    handleParam && handleParam !== 'me' ? ['/getChannel', handleParam] : null,
-    () => api.getChannel({ handle: handleParam.toLowerCase() }),
+    handleParam && handleParam !== 'me'
+    ? ['channel', handleParam]
+    : null,
+
+    async () => {
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('handle', handleParam.toLowerCase())
+        .single();
+      
+      if (profileError || !profile) {
+        throw profileError || new Error('Channel not found');
+      }
+      
+      return {
+        channel: {
+          id: profile.id,
+          email: profile.email,
+          handle: profile.handle,
+          displayName: profile.display_name,
+          notes: profile.notes,
+          accentColor: profile.accent_color || '#000000',
+          featuredSetId: profile.featured_set_id,
+          coSigns: [],
+          avatarUrl: profile.avatar_url,
+          onboardingComplete: profile.onboarding_complete,
+          counts: {
+            sets: 0,
+            tunedIn: 0,
+            tunedTo: 0,
+          },
+        },
+        sets: [],
+        featuredSet: null,
+        viewerHasSubscribed: false,
+        viewerIsOwner:
+          myChannel?.id === profile.id,
+      };
+    }
   );
 
   const [autoPlayed, setAutoPlayed] = useState(false);
