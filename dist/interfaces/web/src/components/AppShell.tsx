@@ -32,14 +32,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const goChannel = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!isAuth || !channel?.handle) {
+
+    if (!isAuth) {
       openAuth(() => {
-        const c = useAuth.getState().channel;
-        if (c?.handle) navigate(`/c/${c.handle}`);
+        navigate('/c/me');
       });
       return;
     }
-    navigate(`/c/${channel.handle}`);
+
+    navigate('/c/me');
   };
 
   return (
@@ -103,9 +104,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </button>
                     <button
                       className="user-menu-item mono-label"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
                         setMenuOpen(false);
-                        useUI.getState().openEditChannel();
+
+                        setTimeout(() => {
+                          navigate('/c/me');
+                        }, 0);
                       }}
                     >
                       ▪ EDIT CHANNEL

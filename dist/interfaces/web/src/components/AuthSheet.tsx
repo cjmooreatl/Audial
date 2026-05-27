@@ -187,6 +187,7 @@ export function AuthSheet() {
   }, [handle]);
 
   const submitOnboarding = async () => {
+    console.log('SUBMIT ONBOARDING STARTED');
     setError(null);
     setSubmitting(true);
     try {
@@ -198,8 +199,8 @@ export function AuthSheet() {
         throw new Error('User not authenticated');
       }
 
-      const { error: dbError } = await supabase
-        .from('channels')
+      const { data, error } = await supabase
+        .from('users')
         .upsert({
           id: user.id,
           email: user.email,
@@ -208,7 +209,16 @@ export function AuthSheet() {
           notes: notes.trim() || null,
           accent_color: accent,
           onboarding_complete: true,
-        });
+        })
+        .select()
+        .single();
+
+      console.log('ONBOARDING UPSERT DATA:', data);
+      console.log('ONBOARDING UPSERT ERROR:', error);
+
+      if (error) {
+        throw error;
+      }
 
       await refreshAuth();
 
@@ -217,10 +227,13 @@ export function AuthSheet() {
       closeAuth();
 
     } catch (err: any) {
-      if (err?.code === '23505') 
+      console.error(err);
+
+      if (err?.code === '23505') {
         setError('Handle is in use. Try another.');
-      else 
+      } else {
         setError(err?.message ?? 'Signal lost. Retry.');
+      }
     } finally {
       setSubmitting(false);
     }

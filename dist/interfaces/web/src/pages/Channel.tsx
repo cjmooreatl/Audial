@@ -48,6 +48,7 @@ export function ChannelPage() {
   const [, navigate] = useLocation();
   const handleParam = params?.handle ?? '';
   const isAuth = useAuth((s) => s.isAuthenticated);
+  const isReady = useAuth((s) => s.isReady);
   const myChannel = useAuth((s) => s.channel);
   const openAuth = useUI((s) => s.openAuth);
   const openEditChannel = useUI((s) => s.openEditChannel);
@@ -62,12 +63,17 @@ export function ChannelPage() {
   // Special handle "me" → redirect to current user, or auth modal
   useEffect(() => {
     if (handleParam === 'me') {
+      if (!isReady) return; // wait until we know for sure
+
       if (isAuth && myChannel?.handle) {
-        navigate(`/c/${myChannel.handle}`, { replace: true });
-      } else {
+        navigate('/c/${myChannel.handle}', { replace: true });
+      } else if (!isAuth) {
         openAuth(() => {
           const c = useAuth.getState().channel;
-          if (c?.handle) navigate(`/c/${c.handle}`, { replace: true });
+
+          if (c?.handle) {
+            navigate('/c/${c.handle}', { replace: true });
+          }
         });
       }
     }
@@ -116,6 +122,11 @@ export function ChannelPage() {
     }
   );
 
+  console.log('CHANNEL DATA:', data);
+  console.log('CHANNEL ERROR:', error);
+  console.log('HANDLE PARAM:', handleParam);
+  console.log('MY CHANNEL:', myChannel);
+
   const [autoPlayed, setAutoPlayed] = useState(false);
 
   // Auto-play featured set on entry, but only after the user has interacted
@@ -130,7 +141,7 @@ export function ChannelPage() {
         setId: featured.id,
         setTitle: featured.title,
         ownerHandle: ch.handle,
-        ownerAccentColor: ch.accentColor,
+        ownerAccentColor: ch.accent_color,
       });
       setAutoPlayed(true);
     }
@@ -190,6 +201,15 @@ export function ChannelPage() {
   }
 
   const ch = (data as any).channel;
+
+  if (!ch) {
+    return (
+      <div className="container" style={{ padding: '96px 0' }}>
+        <h2 className="heading">Channel unavailable.</h2>
+      </div>
+    );
+  }
+  
   const sets: ChannelSetSummary[] = (data as any).sets;
   const featured = (data as any).featuredSet;
   const viewerHasSubscribed: boolean = (data as any).viewerHasSubscribed;
@@ -202,7 +222,7 @@ export function ChannelPage() {
   return (
     <div
       className="channel-page"
-      style={{ '--accent': ch.accentColor } as React.CSSProperties}
+      style={{ '--accent': ch.accent_color } as React.CSSProperties}
     >
       <div className="channel-accent-bar" key={ch.handle} />
       <div className="container">
