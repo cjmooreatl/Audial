@@ -125,8 +125,8 @@ export function AuthSheet() {
       // Slight pause so the success animation registers
       window.setTimeout(async () => {
         await refreshAuth();
-        const fresh = useAuth.getState().channel;
-        if (fresh && !fresh.onboardingComplete) {
+        const freshState = useAuth.getState();
+        if (freshState.isAuthenticated && (!freshState.channel || !freshState.channel.onboardingComplete)) {
           setStep('channel');
           setSuccess(false);
         } else {

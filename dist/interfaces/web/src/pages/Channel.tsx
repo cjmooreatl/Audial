@@ -66,13 +66,15 @@ export function ChannelPage() {
       if (!isReady) return; // wait until we know for sure
 
       if (isAuth && myChannel?.handle) {
-        navigate('/c/${myChannel.handle}', { replace: true });
+        navigate(`/c/${myChannel.handle}`, { replace: true });
+      } else if (isAuth && !myChannel?.handle) {
+        openAuth();
       } else if (!isAuth) {
         openAuth(() => {
           const c = useAuth.getState().channel;
 
           if (c?.handle) {
-            navigate('/c/${c.handle}', { replace: true });
+            navigate(`/c/${c.handle}`, { replace: true });
           }
         });
       }
