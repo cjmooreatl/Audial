@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
-import { platform } from '@mindstudio-ai/interface';
+import { supabase } from '../lib/supabase';
 import {
   DndContext,
   closestCenter,
@@ -137,14 +137,19 @@ export function EditSetModal() {
     setTracks(tracks.filter((t) => t.itunesTrackId !== id));
   };
 
-  // File upload — uses platform.uploadFile, which returns a CDN URL.
+  // File upload — stores cover in Supabase Storage and returns its public URL.
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
     setUploading(true);
     try {
-      const url = await platform.uploadFile(file);
+      const ext = file.name.split('.').pop();
+      const path = `covers/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('covers').upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(path);
+      const url = publicUrl;
       setCoverUrl(url);
       setShowCoverPicker(false);
     } catch (err: any) {
