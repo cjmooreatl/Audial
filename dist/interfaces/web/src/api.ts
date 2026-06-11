@@ -1,5 +1,5 @@
 import { supabase } from './lib/supabase';
-import { searchTracks as iTunesSearchTracks, searchArtists as iTunesSearchArtists } from './lib/itunes';
+import { searchTracks as iTunesSearchTracks, searchArtists as iTunesSearchArtists, lookupTrackByQuery } from './lib/itunes';
 import { seedCoverFor } from './brand/seedCovers';
 
 export interface TrackSnapshot {
@@ -39,6 +39,8 @@ export interface CurrentChannel {
   avatarUrl: string | null;
   onboardingComplete: boolean;
   counts: { sets: number; tunedIn: number; tunedTo: number };
+  spotifyConnected: boolean;
+  spotifyIsPremium: boolean;
 }
 
 export interface FeedCard {
@@ -292,8 +294,80 @@ const api = {
     return { set: rowToSet(data) };
   },
 
-  async importSpotifyPlaylist(_input: { url: string }): Promise<{ set: SetFull }> {
-    throw new Error('Spotify import is not yet available.');
+  async importSpotifyPlaylist(input: { url: string }): Promise<{ set: SetFull }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated.');
+
+    // Call the Edge Function to resolve the playlist (needs server-side client secret)
+    const { data, error } = await supabase.functions.invoke('spotify-import', {
+      body: { url: input.url },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    const playlist = data as {
+      name: string;
+      description: string | null;
+      coverUrl: string | null;
+      url: string;
+      tracks: { title: string; artist: string; albumName: string; coverUrl: string | null }[];
+    };
+
+    if (!playlist.tracks.length) throw new Error('Source has no tracks.');
+
+    // Match each Spotify track against iTunes in parallel batches of 10
+    const BATCH = 10;
+    const matched: TrackSnapshot[] = [];
+    const now = Date.now();
+
+    for (let i = 0; i < playlist.tracks.length; i += BATCH) {
+      const batch = playlist.tracks.slice(i, i + BATCH);
+      const results = await Promise.all(
+        batch.map(async (t) => {
+          const itunes = await lookupTrackByQuery(t.title, t.artist).catch(() => null);
+          if (itunes) return { ...itunes, addedAt: now };
+          if (!t.title) return null;
+          // Keep the track with Spotify metadata even if iTunes has no match
+          return {
+            itunesTrackId: 0,
+            title: t.title,
+            artist: t.artist,
+            albumName: t.albumName,
+            coverUrl: t.coverUrl ?? '',
+            previewUrl: null,
+            durationMs: 0,
+            addedAt: now,
+          } as TrackSnapshot;
+        }),
+      );
+      for (const r of results) {
+        if (r && (r.itunesTrackId || r.previewUrl)) matched.push(r);
+      }
+    }
+
+    if (!matched.length) throw new Error('No matching tracks found in the iTunes catalog.');
+
+    const title = playlist.name;
+    const coverUrl = playlist.coverUrl ?? seedCoverFor(title);
+    const totalDurationMs = matched.reduce((sum, t) => sum + (t.durationMs || 0), 0);
+
+    const { data: setRow, error: setError } = await supabase
+      .from('sets')
+      .insert({
+        owner_id: user.id,
+        title,
+        description: playlist.description || null,
+        cover_url: coverUrl,
+        tracks: matched,
+        track_count: matched.length,
+        total_duration_ms: totalDurationMs,
+        spotify_import_url: playlist.url,
+      })
+      .select()
+      .single();
+
+    if (setError) throw setError;
+    return { set: rowToSet(setRow) };
   },
 
   async updateSet(input: {

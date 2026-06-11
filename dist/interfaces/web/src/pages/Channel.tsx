@@ -7,7 +7,6 @@ import api, { type ChannelSetSummary } from '../api';
 import { SectionHeader } from '../components/SectionHeader';
 import { CoverArt } from '../components/CoverArt';
 import { Avatar } from '../components/Avatar';
-import { ConnectSpotifyModal } from '../components/ConnectSpotifyModal';
 import { useAuth } from '../store/auth';
 import { useUI } from '../store/ui';
 import { useAudio } from '../store/audio';
@@ -52,13 +51,13 @@ export function ChannelPage() {
   const myChannel = useAuth((s) => s.channel);
   const openAuth = useUI((s) => s.openAuth);
   const openEditChannel = useUI((s) => s.openEditChannel);
+  const openConnectSpotify = useUI((s) => s.openConnectSpotify);
   const playChannel = useAudio((s) => s.playChannel);
   const pause = useAudio((s) => s.pause);
   const audioCurrent = useAudio((s) => s.current);
   const isPlaying = useAudio((s) => s.isPlaying);
   const hasInteracted = useAudio((s) => s.hasInteracted);
   const [muted, setMuted] = useState(false);
-  const [connectSpotifyOpen, setConnectSpotifyOpen] = useState(false);
 
   // Special handle "me" → redirect to current user, or auth modal
   useEffect(() => {
@@ -261,7 +260,7 @@ export function ChannelPage() {
                   <button className="btn btn-line" onClick={openEditChannel}>EDIT CHANNEL</button>
                   <button
                     className="btn btn-line"
-                    onClick={() => setConnectSpotifyOpen(true)}
+                    onClick={openConnectSpotify}
                   >
                     <IconBrandSpotify size={14} stroke={1.5} /> CONNECT SPOTIFY
                   </button>
@@ -397,10 +396,6 @@ export function ChannelPage() {
           )}
         </Section>
       </div>
-      <ConnectSpotifyModal
-        open={connectSpotifyOpen}
-        onClose={() => setConnectSpotifyOpen(false)}
-      />
     </div>
   );
 }
