@@ -176,6 +176,8 @@ const api = {
         avatarUrl: data.avatar_url,
         onboardingComplete: data.onboarding_complete,
         counts: { sets: 0, tunedIn: 0, tunedTo: 0 },
+        spotifyConnected: data.spotify_connected ?? false,
+        spotifyIsPremium: data.spotify_is_premium ?? false,
       },
     };
   },
@@ -302,7 +304,15 @@ const api = {
     const { data, error } = await supabase.functions.invoke('spotify-import', {
       body: { url: input.url },
     });
-    if (error) throw error;
+    if (error) {
+      // Extract the actual message from the Edge Function response body
+      let msg = (error as any).message ?? 'Import failed.';
+      try {
+        const body = await (error as any).context?.json?.();
+        if (body?.error) msg = body.error;
+      } catch {}
+      throw new Error(msg);
+    }
     if (data?.error) throw new Error(data.error);
 
     const playlist = data as {

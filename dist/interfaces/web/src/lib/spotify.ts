@@ -35,6 +35,11 @@ async function sha256Base64Url(input: string): Promise<string> {
 }
 
 export async function startSpotifyOAuth(): Promise<void> {
+  if (!crypto?.subtle) {
+    throw new Error(
+      'Secure context required. Open the app at http://localhost:5173 instead of an IP address.',
+    );
+  }
   const verifier = generateCodeVerifier();
   const challenge = await sha256Base64Url(verifier);
   sessionStorage.setItem('spotify_code_verifier', verifier);
@@ -48,7 +53,8 @@ export async function startSpotifyOAuth(): Promise<void> {
     scope: SCOPES,
   });
 
-  window.location.href = `https://accounts.spotify.com/authorize?${params}`;
+  const authUrl = `https://accounts.spotify.com/authorize?${params.toString().replace(/\+/g, '%20')}`;
+  window.location.href = authUrl;
 }
 
 export async function exchangeSpotifyCode(code: string): Promise<{
@@ -157,8 +163,8 @@ export async function getValidSpotifyToken(): Promise<string | null> {
 
   if (!data?.spotify_connected || !data.spotify_access_token) return null;
 
-  // Still valid with a 60s buffer
-  if ((data.spotify_token_expires_at ?? 0) > Date.now() + 60_000) {
+  // Still valid with a 60s buffer (coerce to number — bigint columns come back as strings)
+  if (Number(data.spotify_token_expires_at ?? 0) > Date.now() + 60_000) {
     return data.spotify_access_token;
   }
 
@@ -209,11 +215,72 @@ export interface SpotifyTrack {
   coverUrl: string | null;
 }
 
+export async function getPlaylistById(token: string, playlistId: string): Promise<{
+  name: string;
+  description: string | null;
+  coverUrl: string | null;
+  url: string | null;
+  tracks: SpotifyTrack[];
+}> {
+  const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const msg = (body as any).error?.message ?? `HTTP ${res.status}`;
+    const hint = res.status === 401 || res.status === 403
+      ? ' Disconnect and reconnect Spotify to refresh your permissions.'
+      : '';
+    throw new Error(`${msg}.${hint}`);
+  }
+  const meta = await res.json();
+  // Spotify renamed `tracks` → `items` in the playlist response (the value is still a paged object)
+  const tracksPage = meta.items ?? meta.tracks;
+  const tracks: SpotifyTrack[] = [];
+  const processItems = (items: any[]) => {
+    for (const item of items ?? []) {
+      const t = item?.item ?? item?.track;
+      if (!t?.name) continue;
+      tracks.push({
+        title: t.name,
+        artist: t.artists?.[0]?.name ?? 'Unknown',
+        albumName: t.album?.name ?? '',
+        coverUrl: t.album?.images?.[0]?.url ?? null,
+      });
+    }
+  };
+
+  processItems(tracksPage?.items ?? []);
+
+  let nextUrl: string | null = tracksPage?.next ?? null;
+  while (nextUrl) {
+    const r = await fetch(nextUrl, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) break;
+    const data = await r.json();
+    processItems(data.items ?? []);
+    nextUrl = data.next ?? null;
+  }
+
+  return {
+    name: meta.name,
+    description: meta.description || null,
+    coverUrl: meta.images?.[0]?.url ?? null,
+    url: meta.external_urls?.spotify ?? null,
+    tracks,
+  };
+}
+
 export async function getUserPlaylists(token: string, limit = 50): Promise<SpotifyPlaylist[]> {
   const res = await fetch(`https://api.spotify.com/v1/me/playlists?limit=${limit}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('Failed to load your Spotify playlists.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = (body as any).error?.message ?? `HTTP ${res.status}`;
+    const needsReconnect = res.status === 401 || res.status === 403;
+    const hint = needsReconnect ? ' Disconnect and reconnect Spotify to refresh your permissions.' : '';
+    throw new Error(`${detail}.${hint}`);
+  }
   const data = await res.json();
 
   return (data.items ?? []).map((p: any) => ({
@@ -229,11 +296,14 @@ export async function getUserPlaylists(token: string, limit = 50): Promise<Spoti
 export async function getPlaylistTracks(token: string, playlistId: string): Promise<SpotifyTrack[]> {
   const tracks: SpotifyTrack[] = [];
   let url: string | null =
-    `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(name,artists,album)),next`;
+    `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100`;
 
   while (url) {
     const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) break;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`Failed to fetch tracks: HTTP ${res.status} — ${(body as any).error?.message ?? 'unknown'}`);
+    }
     const data = await res.json();
 
     for (const item of data.items ?? []) {

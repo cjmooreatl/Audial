@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Spotify playlist resolver — uses Client Credentials (no user auth needed)
 // to fetch any public playlist by URL and return its track metadata.
 // The frontend handles iTunes matching and set creation after this returns.
@@ -59,19 +60,23 @@ serve(async (req) => {
 
     const token = await getClientToken();
 
-    // Playlist metadata
+    // Playlist metadata — no ?fields filter so all playlist types are supported
     const metaRes = await fetch(
-      `https://api.spotify.com/v1/playlists/${playlistId}?fields=name,description,images,external_urls`,
+      `https://api.spotify.com/v1/playlists/${playlistId}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     if (metaRes.status === 404) return json({ error: 'Playlist not found.' }, 404);
-    if (!metaRes.ok) return json({ error: 'Could not fetch playlist. It may be private.' }, 400);
+    if (!metaRes.ok) {
+      const metaBody = await metaRes.json().catch(() => ({}));
+      const msg = (metaBody as any).error?.message ?? `HTTP ${metaRes.status}`;
+      return json({ error: `Could not fetch playlist: ${msg}.` }, 400);
+    }
     const meta = await metaRes.json();
 
     // Paginate all tracks
     const tracks: { title: string; artist: string; albumName: string; coverUrl: string | null }[] = [];
     let nextUrl: string | null =
-      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(name,artists,album)),next`;
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100`;
 
     while (nextUrl) {
       const tracksRes: Response = await fetch(nextUrl, {

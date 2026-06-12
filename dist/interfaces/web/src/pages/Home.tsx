@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import useSWR from 'swr';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { IconPlus } from '@tabler/icons-react';
 import api, { type FeedTab, type FeedCard } from '../api';
 import { SetCardCompact, SetCardHero } from '../components/SetCard';
@@ -11,6 +11,7 @@ import { phraseForToday, sectionThemeFor, issueNumber } from '../brand/phrases';
 import { formatDateline, formatDuration } from '../brand/format';
 import { useLocation } from 'wouter';
 
+
 const TABS: { id: FeedTab; label: string }[] = [
   { id: 'subscribed', label: 'SUBSCRIBED' },
   { id: 'on-rotation', label: 'ON ROTATION' },
@@ -20,10 +21,8 @@ const TABS: { id: FeedTab; label: string }[] = [
 
 export function HomePage() {
   const [tab, setTab] = useState<FeedTab>('on-rotation');
-  const [plusOpen, setPlusOpen] = useState(false);
   const isAuth = useAuth((s) => s.isAuthenticated);
   const openAuth = useUI((s) => s.openAuth);
-  const openCompile = useUI((s) => s.openCompile);
   const openShare = useUI((s) => s.openShare);
 
   const { data, isLoading } = useSWR(['/getHomeFeed', tab], () => api.getHomeFeed({ tab, limit: 24 }));
@@ -32,22 +31,9 @@ export function HomePage() {
 
   const phrase = phraseForToday();
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!plusOpen) return;
-    const handler = () => setPlusOpen(false);
-    window.addEventListener('click', handler);
-    return () => window.removeEventListener('click', handler);
-  }, [plusOpen]);
-
-  const handlePlusAction = (action: 'compile' | 'share') => {
-    setPlusOpen(false);
-    if (!isAuth) {
-      openAuth(() => (action === 'compile' ? openCompile() : openShare()));
-      return;
-    }
-    if (action === 'compile') openCompile();
-    else openShare();
+  const handlePlus = () => {
+    if (!isAuth) { openAuth(() => openShare()); return; }
+    openShare();
   };
 
   return (
@@ -97,37 +83,11 @@ export function HomePage() {
         <div className="home-plus-wrap">
           <button
             className="home-plus"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPlusOpen(!plusOpen);
-            }}
-            aria-label="New set"
+            onClick={handlePlus}
+            aria-label="Share a set"
           >
             <IconPlus size={18} stroke={1.5} />
           </button>
-          <AnimatePresence>
-            {plusOpen && (
-              <motion.div
-                className="home-dropdown"
-                onClick={(e) => e.stopPropagation()}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.14, ease: [0.2, 0.85, 0.25, 1] }}
-              >
-                <button className="dd-item" onClick={() => handlePlusAction('compile')}>
-                  <span className="tick">▪</span>
-                  <span className="num">01</span>
-                  COMPILE A SET
-                </button>
-                <button className="dd-item" onClick={() => handlePlusAction('share')}>
-                  <span className="tick">▪</span>
-                  <span className="num">02</span>
-                  SHARE A SET
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
 
@@ -140,8 +100,8 @@ export function HomePage() {
             <h2 className="heading">
               {tab === 'subscribed' ? 'Tune to a channel to fill this feed.' : 'No transmissions yet.'}
             </h2>
-            <button className="cta" onClick={() => handlePlusAction('compile')}>
-              COMPILE A SET
+            <button className="cta" onClick={handlePlus}>
+              SHARE A SET
             </button>
           </div>
         )}

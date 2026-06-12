@@ -52,6 +52,7 @@ export function ChannelPage() {
   const openAuth = useUI((s) => s.openAuth);
   const openEditChannel = useUI((s) => s.openEditChannel);
   const openConnectSpotify = useUI((s) => s.openConnectSpotify);
+  const openShare = useUI((s) => s.openShare);
   const playChannel = useAudio((s) => s.playChannel);
   const pause = useAudio((s) => s.pause);
   const audioCurrent = useAudio((s) => s.current);
@@ -257,12 +258,14 @@ export function ChannelPage() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {viewerIsOwner ? (
                 <>
+                  <button className="btn btn-fill" onClick={openShare}>SHARE A SET</button>
                   <button className="btn btn-line" onClick={openEditChannel}>EDIT CHANNEL</button>
                   <button
                     className="btn btn-line"
                     onClick={openConnectSpotify}
                   >
-                    <IconBrandSpotify size={14} stroke={1.5} /> CONNECT SPOTIFY
+                    <IconBrandSpotify size={14} stroke={1.5} />
+                    {myChannel?.spotifyConnected ? 'SPOTIFY CONNECTED' : 'CONNECT SPOTIFY'}
                   </button>
                 </>
               ) : (
