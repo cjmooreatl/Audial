@@ -13,9 +13,10 @@ import {
   getValidSpotifyToken,
   getUserPlaylists,
   getPlaylistById,
+  hashSpotifyId,
   type SpotifyPlaylist,
 } from '../lib/spotify';
-import { lookupTrackByQuery } from '../lib/itunes';
+import { getPreviewUrl } from '../lib/itunes';
 
 type Mode = 'build' | 'url' | 'library';
 
@@ -53,7 +54,6 @@ export function ShareSetModal() {
   const [playlistLoadError, setPlaylistLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<SpotifyPlaylist | null>(null);
-  const [unmatchedCount, setUnmatchedCount] = useState<number | null>(null);
 
   // Reset everything when modal opens
   useEffect(() => {
@@ -73,7 +73,6 @@ export function ShareSetModal() {
       setPlaylistLoadError(null);
       setFilter('');
       setSelected(null);
-      setUnmatchedCount(null);
     }
   }, [open]);
 
@@ -157,32 +156,32 @@ export function ShareSetModal() {
       const playlist = await getPlaylistById(token, match[1]);
       if (!playlist.tracks.length) throw new Error('This playlist has no tracks.');
 
-      const BATCH = 10;
-      const matched: TrackSnapshot[] = [];
-      let unmatched = 0;
       const now = Date.now();
-
+      const BATCH = 10;
+      const tracks: TrackSnapshot[] = [];
       for (let i = 0; i < playlist.tracks.length; i += BATCH) {
         const batch = playlist.tracks.slice(i, i + BATCH);
-        const results = await Promise.all(
-          batch.map((t) => lookupTrackByQuery(t.title, t.artist).catch(() => null)),
-        );
-        for (const r of results) {
-          if (r) matched.push({ ...r, addedAt: now });
-          else unmatched++;
-        }
+        const enriched = await Promise.all(batch.map(async (t) => ({
+          itunesTrackId: hashSpotifyId(t.spotifyId),
+          spotifyTrackId: t.spotifyId || undefined,
+          title: t.title,
+          artist: t.artist,
+          albumName: t.albumName,
+          coverUrl: t.coverUrl ?? '',
+          previewUrl: t.previewUrl ?? await getPreviewUrl(t.title, t.artist).catch(() => null),
+          durationMs: t.durationMs,
+          addedAt: now,
+        } as TrackSnapshot)));
+        tracks.push(...enriched);
       }
-
-      if (!matched.length) throw new Error('No tracks matched in the iTunes catalog.');
 
       const { set } = await api.compileSet({
         title: playlist.name,
         description: playlist.description ?? undefined,
         coverUrl: playlist.coverUrl ?? undefined,
-        tracks: matched,
+        tracks,
       });
 
-      if (unmatched > 0) setUnmatchedCount(unmatched);
       await refreshAuth();
       close();
       navigate(`/s/${set.id}`);
@@ -197,41 +196,39 @@ export function ShareSetModal() {
     if (!selected) return;
     setError(null);
     setSubmitting(true);
-    setUnmatchedCount(null);
     try {
       const token = await getValidSpotifyToken();
       if (!token) throw new Error('Could not get a Spotify token. Try reconnecting.');
 
       const playlist = await getPlaylistById(token, selected.id);
-      const spotifyTracks = playlist.tracks;
-      if (!spotifyTracks.length) throw new Error('This playlist has no tracks.');
+      if (!playlist.tracks.length) throw new Error('This playlist has no tracks.');
 
-      const BATCH = 10;
-      const matched: TrackSnapshot[] = [];
-      let unmatched = 0;
       const now = Date.now();
-
-      for (let i = 0; i < spotifyTracks.length; i += BATCH) {
-        const batch = spotifyTracks.slice(i, i + BATCH);
-        const results = await Promise.all(
-          batch.map((t) => lookupTrackByQuery(t.title, t.artist).catch(() => null)),
-        );
-        for (const r of results) {
-          if (r) matched.push({ ...r, addedAt: now });
-          else unmatched++;
-        }
+      const BATCH = 10;
+      const tracks: TrackSnapshot[] = [];
+      for (let i = 0; i < playlist.tracks.length; i += BATCH) {
+        const batch = playlist.tracks.slice(i, i + BATCH);
+        const enriched = await Promise.all(batch.map(async (t) => ({
+          itunesTrackId: hashSpotifyId(t.spotifyId),
+          spotifyTrackId: t.spotifyId || undefined,
+          title: t.title,
+          artist: t.artist,
+          albumName: t.albumName,
+          coverUrl: t.coverUrl ?? '',
+          previewUrl: t.previewUrl ?? await getPreviewUrl(t.title, t.artist).catch(() => null),
+          durationMs: t.durationMs,
+          addedAt: now,
+        } as TrackSnapshot)));
+        tracks.push(...enriched);
       }
-
-      if (!matched.length) throw new Error('No matching tracks found in the iTunes catalog.');
 
       const { set } = await api.compileSet({
         title: selected.name,
         description: selected.description ?? undefined,
         coverUrl: selected.coverUrl ?? undefined,
-        tracks: matched,
+        tracks,
       });
 
-      if (unmatched > 0) setUnmatchedCount(unmatched);
       await refreshAuth();
       close();
       navigate(`/s/${set.id}`);
@@ -505,11 +502,6 @@ export function ShareSetModal() {
               >
                 CONNECT SPOTIFY
               </button>
-            </div>
-          )}
-          {unmatchedCount !== null && unmatchedCount > 0 && (
-            <div className="mono-meta smoke" style={{ marginTop: 8 }}>
-              ▪ {unmatchedCount} {unmatchedCount === 1 ? 'cut' : 'cuts'} not found in the iTunes catalog.
             </div>
           )}
         </>

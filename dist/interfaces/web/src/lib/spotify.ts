@@ -209,10 +209,23 @@ export interface SpotifyPlaylist {
 }
 
 export interface SpotifyTrack {
+  spotifyId: string;
   title: string;
   artist: string;
   albumName: string;
   coverUrl: string | null;
+  previewUrl: string | null;
+  durationMs: number;
+}
+
+// FNV-1a 32-bit hash — maps a Spotify track ID to a stable integer for deduplication.
+export function hashSpotifyId(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 export async function getPlaylistById(token: string, playlistId: string): Promise<{
@@ -239,13 +252,17 @@ export async function getPlaylistById(token: string, playlistId: string): Promis
   const tracks: SpotifyTrack[] = [];
   const processItems = (items: any[]) => {
     for (const item of items ?? []) {
+      if (item?.is_local) continue;
       const t = item?.item ?? item?.track;
-      if (!t?.name) continue;
+      if (!t?.name || t?.type !== 'track') continue;
       tracks.push({
+        spotifyId: t.id ?? '',
         title: t.name,
         artist: t.artists?.[0]?.name ?? 'Unknown',
         albumName: t.album?.name ?? '',
         coverUrl: t.album?.images?.[0]?.url ?? null,
+        previewUrl: t.preview_url ?? null,
+        durationMs: t.duration_ms ?? 0,
       });
     }
   };
@@ -307,13 +324,17 @@ export async function getPlaylistTracks(token: string, playlistId: string): Prom
     const data = await res.json();
 
     for (const item of data.items ?? []) {
-      const t = item?.track;
-      if (!t?.name) continue;
+      if (item?.is_local) continue;
+      const t = item?.item ?? item?.track;
+      if (!t?.name || t?.type !== 'track') continue;
       tracks.push({
+        spotifyId: t.id ?? '',
         title: t.name,
         artist: t.artists?.[0]?.name ?? 'Unknown',
         albumName: t.album?.name ?? '',
         coverUrl: t.album?.images?.[0]?.url ?? null,
+        previewUrl: t.preview_url ?? null,
+        durationMs: t.duration_ms ?? 0,
       });
     }
     url = data.next ?? null;

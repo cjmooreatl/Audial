@@ -4,6 +4,7 @@ import { seedCoverFor } from './brand/seedCovers';
 
 export interface TrackSnapshot {
   itunesTrackId: number;
+  spotifyTrackId?: string;
   title: string;
   artist: string;
   albumName: string;
