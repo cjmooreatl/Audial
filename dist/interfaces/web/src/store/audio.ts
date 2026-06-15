@@ -31,10 +31,11 @@ interface AudioState {
   channelMeta: { setId: string; setTitle: string; ownerHandle: string; ownerAccentColor: string } | null;
   // Preview source resumption
   resumeSource: { source: AudioSource; track: NowPlayingTrack | null } | null;
-  // Spotify Web Playback SDK state
+  // Spotify playback state (SDK on desktop, Connect on mobile)
   spotifyDeviceId: string | null;
   spotifyReady: boolean;
-  spotifyPositionMs: number;     // last known position from SDK
+  spotifyConnectMode: boolean;   // true when using Spotify Connect instead of the Web Playback SDK
+  spotifyPositionMs: number;     // last known position from SDK or Connect poll
   spotifyStateTimestamp: number; // Date.now() when position was recorded
 
   // Actions
@@ -53,6 +54,7 @@ interface AudioState {
   onEnded: () => Promise<void>;
   pushRecent: (id: number) => void;
   setSpotifyDevice: (id: string | null, ready: boolean) => void;
+  setSpotifyConnectMode: (mode: boolean) => void;
   setSpotifyState: (positionMs: number) => void;
 }
 
@@ -68,6 +70,7 @@ export const useAudio = create<AudioState>((set, get) => ({
   resumeSource: null,
   spotifyDeviceId: null,
   spotifyReady: false,
+  spotifyConnectMode: false,
   spotifyPositionMs: 0,
   spotifyStateTimestamp: 0,
 
@@ -130,6 +133,7 @@ export const useAudio = create<AudioState>((set, get) => ({
   },
 
   setSpotifyDevice: (id, ready) => set({ spotifyDeviceId: id, spotifyReady: ready }),
+  setSpotifyConnectMode: (mode) => set({ spotifyConnectMode: mode }),
   setSpotifyState: (positionMs) => set({ spotifyPositionMs: positionMs, spotifyStateTimestamp: Date.now() }),
 
   playChannel: (tracks, meta, startIndex = 0) => {

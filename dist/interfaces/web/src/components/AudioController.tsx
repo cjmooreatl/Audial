@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAudio } from '../store/audio';
 import { useAuth } from '../store/auth';
-import { getValidSpotifyToken } from '../lib/spotify';
+import { getValidSpotifyToken, getAvailableDevices } from '../lib/spotify';
 import api from '../api';
 
 // Minimal Spotify Web Playback SDK types
@@ -34,7 +34,10 @@ interface SpotifySDKState {
   track_window: { current_track: { id: string; uri: string; name: string } };
 }
 
-async function spotifyPlay(deviceId: string, trackId: string) {
+// Detected once at module load — doesn't change during a session.
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+async function spotifyPlay(deviceId: string, trackId: string): Promise<void> {
   const token = await getValidSpotifyToken();
   if (!token) return;
   await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
@@ -44,19 +47,70 @@ async function spotifyPlay(deviceId: string, trackId: string) {
   });
 }
 
-// Single global audio element + Spotify SDK player. Only one instance exists in the app.
+async function spotifyPause(): Promise<void> {
+  const token = await getValidSpotifyToken();
+  if (!token) return;
+  await fetch('https://api.spotify.com/v1/me/player/pause', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+async function spotifyResume(): Promise<void> {
+  const token = await getValidSpotifyToken();
+  if (!token) return;
+  await fetch('https://api.spotify.com/v1/me/player/play', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// Picks the best available Spotify Connect device: prefer active, then smartphone, then any.
+async function pickConnectDevice(): Promise<string | null> {
+  const token = await getValidSpotifyToken().catch(() => null);
+  if (!token) { console.log('[Connect] no token'); return null; }
+  const devices = await getAvailableDevices(token);
+  console.log('[Connect] devices:', devices);
+  const device =
+    devices.find((d) => d.isActive) ??
+    devices.find((d) => d.type === 'Smartphone') ??
+    devices[0] ??
+    null;
+  return device?.id ?? null;
+}
+
+// Sends a play command to Spotify. deviceId=null means "use Spotify's currently active device."
+// Returns true if the command was accepted (2xx or 204).
+async function connectPlay(deviceId: string | null, trackId: string): Promise<boolean> {
+  const token = await getValidSpotifyToken().catch(() => null);
+  if (!token) return false;
+  const url = deviceId
+    ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+    : 'https://api.spotify.com/v1/me/player/play';
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+  });
+  console.log('[Connect] play response:', res.status, 'deviceId:', deviceId);
+  return res.ok || res.status === 204;
+}
+
+// Single global audio element + Spotify SDK/Connect player. Only one instance exists in the app.
 export function AudioController() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sdkPlayerRef = useRef<SpotifySDKPlayer | null>(null);
   const prevPositionRef = useRef<number>(0);
-  const playingSpotifyIdRef = useRef<string | null>(null); // track ID currently loaded in SDK
+  const playingSpotifyIdRef = useRef<string | null>(null);
 
   const current = useAudio((s) => s.current);
   const isPlaying = useAudio((s) => s.isPlaying);
   const spotifyDeviceId = useAudio((s) => s.spotifyDeviceId);
   const spotifyReady = useAudio((s) => s.spotifyReady);
+  const spotifyConnectMode = useAudio((s) => s.spotifyConnectMode);
   const onEnded = useAudio((s) => s.onEnded);
   const setSpotifyDevice = useAudio((s) => s.setSpotifyDevice);
+  const setSpotifyConnectMode = useAudio((s) => s.setSpotifyConnectMode);
   const setSpotifyState = useAudio((s) => s.setSpotifyState);
 
   const channel = useAuth((s) => s.channel);
@@ -65,12 +119,25 @@ export function AudioController() {
   const isPremium = channel?.spotifyIsPremium ?? false;
   const isSpotifyConnected = channel?.spotifyConnected ?? false;
 
-  // Whether the current track should use the Spotify SDK for playback
-  const useSpotify = isPremium && isSpotifyConnected && spotifyReady && !!current?.spotifyTrackId;
-
-  // ── Spotify SDK init ──────────────────────────────────────────────────────
+  // ── Mobile: Spotify Connect init ──────────────────────────────────────────
   useEffect(() => {
-    if (!isPremium || !isSpotifyConnected) return;
+    if (!isMobile || !isPremium || !isSpotifyConnected) {
+      if (isMobile) {
+        setSpotifyConnectMode(false);
+        setSpotifyDevice(null, false);
+      }
+      return;
+    }
+    setSpotifyConnectMode(true);
+    // Pre-fetch a device so spotifyReady can be true before the user taps play.
+    pickConnectDevice().then((id) => {
+      if (id) setSpotifyDevice(id, true);
+    });
+  }, [isPremium, isSpotifyConnected]);
+
+  // ── Desktop: Spotify Web Playback SDK init ────────────────────────────────
+  useEffect(() => {
+    if (isMobile || !isPremium || !isSpotifyConnected) return;
 
     const initPlayer = () => {
       const player = new window.Spotify.Player({
@@ -138,30 +205,103 @@ export function AudioController() {
     };
   }, [isPremium, isSpotifyConnected]);
 
-  // ── Route playback: Spotify SDK vs <audio> ────────────────────────────────
+  // ── Mobile Connect: poll Spotify for position + track-end detection ───────
+  useEffect(() => {
+    if (!spotifyConnectMode || !isPlaying || !current?.spotifyTrackId) return;
+    const id = window.setInterval(async () => {
+      const token = await getValidSpotifyToken().catch(() => null);
+      if (!token) return;
+      const res = await fetch('https://api.spotify.com/v1/me/player', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 204 || !res.ok) {
+        // No active playback — track finished
+        if (prevPositionRef.current > 2000) {
+          prevPositionRef.current = 0;
+          playingSpotifyIdRef.current = null;
+          useAudio.getState().onEnded();
+        }
+        return;
+      }
+      const state = await res.json();
+      const pos: number = state.progress_ms ?? 0;
+      setSpotifyState(pos);
+      if (!state.is_playing && pos < 1000 && prevPositionRef.current > 2000) {
+        prevPositionRef.current = 0;
+        playingSpotifyIdRef.current = null;
+        useAudio.getState().onEnded();
+        return;
+      }
+      prevPositionRef.current = pos;
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [spotifyConnectMode, isPlaying, current?.spotifyTrackId]);
+
+  // ── Route playback ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!current) return;
 
-    if (useSpotify && spotifyDeviceId && current.spotifyTrackId) {
-      // Spotify SDK path
+    const canUseSpotify = isPremium && isSpotifyConnected && !!current.spotifyTrackId;
+    const useSDK = canUseSpotify && !isMobile && spotifyReady && !!spotifyDeviceId;
+    const useConnect = canUseSpotify && isMobile;
+
+    if (useSDK) {
+      // ── Spotify Web Playback SDK (desktop) ──
       const audioEl = audioRef.current;
       if (audioEl && !audioEl.paused) { audioEl.pause(); audioEl.src = ''; }
 
+      const trackId = current.spotifyTrackId!;
       if (isPlaying) {
-        if (playingSpotifyIdRef.current !== current.spotifyTrackId) {
-          // Load and play new track
-          playingSpotifyIdRef.current = current.spotifyTrackId;
+        if (playingSpotifyIdRef.current !== trackId) {
+          playingSpotifyIdRef.current = trackId;
           prevPositionRef.current = 0;
           setSpotifyState(0);
-          spotifyPlay(spotifyDeviceId, current.spotifyTrackId);
+          spotifyPlay(spotifyDeviceId!, trackId);
         } else {
           sdkPlayerRef.current?.resume();
         }
       } else {
         sdkPlayerRef.current?.pause();
       }
+
+    } else if (useConnect) {
+      // ── Spotify Connect (mobile) ──
+      const audioEl = audioRef.current;
+      if (audioEl && !audioEl.paused) { audioEl.pause(); audioEl.src = ''; }
+
+      const trackId = current.spotifyTrackId!;
+      const previewUrl = current.previewUrl;
+      if (isPlaying) {
+        if (playingSpotifyIdRef.current !== trackId) {
+          // New track: find a device and start it
+          playingSpotifyIdRef.current = trackId;
+          prevPositionRef.current = 0;
+          setSpotifyState(0);
+          ;(async () => {
+            const deviceId = await pickConnectDevice();
+            if (deviceId) setSpotifyDevice(deviceId, true);
+            // Try with the discovered device first; if none found, try Spotify's "last active"
+            const ok = await connectPlay(deviceId, trackId);
+            if (!ok) {
+              // Both attempts failed — fall back to preview or skip
+              if (previewUrl && audioRef.current) {
+                audioRef.current.src = previewUrl;
+                audioRef.current.play().catch(() => {});
+              } else {
+                useAudio.getState().onEnded();
+              }
+            }
+          })();
+        } else {
+          // Same track: resume
+          spotifyResume();
+        }
+      } else {
+        spotifyPause();
+      }
+
     } else {
-      // HTML <audio> path
+      // ── HTML <audio> preview ──
       if (sdkPlayerRef.current && playingSpotifyIdRef.current) {
         sdkPlayerRef.current.pause();
         playingSpotifyIdRef.current = null;
@@ -171,12 +311,9 @@ export function AudioController() {
       if (!el) return;
 
       const url = current.previewUrl ?? '';
-      if (el.src !== url) {
-        el.src = url;
-      }
+      if (el.src !== url) el.src = url;
 
       if (!url) {
-        // No playable audio for this track — auto-skip
         if (isPlaying) onEnded();
         return;
       }
@@ -187,9 +324,9 @@ export function AudioController() {
         el.pause();
       }
     }
-  }, [isPlaying, current?.spotifyTrackId, current?.previewUrl, useSpotify, spotifyDeviceId]);
+  }, [isPlaying, current?.spotifyTrackId, current?.previewUrl, spotifyReady, spotifyDeviceId, isPremium, isSpotifyConnected, spotifyConnectMode]);
 
-  // ── Spin logging (unchanged) ──────────────────────────────────────────────
+  // ── Spin logging ──────────────────────────────────────────────────────────
   const spinLoggedRef = useRef<{ trackId: number | null; setId: string | null }>({
     trackId: null,
     setId: null,

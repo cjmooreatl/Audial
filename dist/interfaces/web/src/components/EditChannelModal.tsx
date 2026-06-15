@@ -25,6 +25,7 @@ export function EditChannelModal() {
   const [searchingArtists, setSearchingArtists] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [setPage, setSetPage] = useState(0);
   const artistTimer = useRef<number | null>(null);
 
   const { data: chData } = useSWR(
@@ -43,6 +44,7 @@ export function EditChannelModal() {
       setArtistQuery('');
       setArtistResults([]);
       setError(null);
+      setSetPage(0);
     }
   }, [open, channel]);
 
@@ -141,27 +143,91 @@ export function EditChannelModal() {
 
         <div className="form-row">
           <label className="mono-label">FEATURED SET</label>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-            <button
-              type="button"
-              className={`btn btn-line ${featuredSetId === null ? 'active' : ''}`}
-              onClick={() => setFeaturedSetId(null)}
-              style={{ background: featuredSetId === null ? 'var(--ink)' : undefined, color: featuredSetId === null ? 'var(--bone)' : undefined }}
-            >
-              NONE
-            </button>
-            {sets.map((s) => (
-              <button
-                key={s.setId}
-                type="button"
-                className="btn btn-line"
-                onClick={() => setFeaturedSetId(s.setId)}
-                style={featuredSetId === s.setId ? { background: 'var(--ink)', color: 'var(--bone)' } : undefined}
-              >
-                {s.title}
-              </button>
-            ))}
-          </div>
+          {featuredSetId && sets.find((s) => s.setId === featuredSetId) && (() => {
+            const featured = sets.find((s) => s.setId === featuredSetId)!;
+            return (
+              <div style={{
+                marginTop: 8,
+                padding: '10px 14px',
+                background: 'var(--ink)',
+                color: 'var(--bone)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div>
+                  <div className="mono-label" style={{ color: 'var(--accent)', fontSize: 10, marginBottom: 2 }}>▪ FEATURED</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{featured.title}</div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-text"
+                  style={{ color: 'var(--mist)', fontFamily: 'var(--font-mono)', fontSize: 11 }}
+                  onClick={() => setFeaturedSetId(null)}
+                >
+                  REMOVE
+                </button>
+              </div>
+            );
+          })()}
+          {sets.length === 0 ? (
+            <div className="mono-label smoke" style={{ marginTop: 8 }}>NO SETS FOUND.</div>
+          ) : (
+            <div style={{ marginTop: featuredSetId ? 4 : 8 }}>
+              {sets.slice(setPage * 5, setPage * 5 + 5).map((s) => (
+                <button
+                  key={s.setId}
+                  type="button"
+                  onClick={() => setFeaturedSetId(s.setId === featuredSetId ? null : s.setId)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '9px 12px',
+                    marginBottom: 3,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 13,
+                    border: `1px solid ${s.setId === featuredSetId ? 'var(--ink)' : 'var(--mist)'}`,
+                    background: s.setId === featuredSetId ? 'var(--paper)' : 'transparent',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                  }}
+                >
+                  <span>{s.title}</span>
+                  {s.setId === featuredSetId && (
+                    <span className="mono-label" style={{ fontSize: 10, color: 'var(--accent)' }}>SELECTED</span>
+                  )}
+                </button>
+              ))}
+              {sets.length > 5 && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-line"
+                    style={{ padding: '4px 10px', fontSize: 11 }}
+                    onClick={() => setSetPage((p) => Math.max(0, p - 1))}
+                    disabled={setPage === 0}
+                  >
+                    ←
+                  </button>
+                  <span className="mono-label smoke" style={{ fontSize: 11 }}>
+                    {setPage + 1} / {Math.ceil(sets.length / 5)}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-line"
+                    style={{ padding: '4px 10px', fontSize: 11 }}
+                    onClick={() => setSetPage((p) => Math.min(Math.ceil(sets.length / 5) - 1, p + 1))}
+                    disabled={setPage >= Math.ceil(sets.length / 5) - 1}
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="form-row">

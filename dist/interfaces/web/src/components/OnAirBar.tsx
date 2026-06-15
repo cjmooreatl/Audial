@@ -26,6 +26,7 @@ export function OnAirBar() {
   const [, navigate] = useLocation();
 
   const spotifyReady = useAudio((s) => s.spotifyReady);
+  const spotifyConnectMode = useAudio((s) => s.spotifyConnectMode);
 
   const [progress, setProgress] = useState(0); // 0..1
   const [elapsed, setElapsed] = useState(0); // seconds
@@ -34,7 +35,8 @@ export function OnAirBar() {
   // overlay chip can render and the cover can punch.
   const [filed, setFiled] = useState<string | null>(null);
 
-  const isSpotifyTrack = spotifyReady && !!current?.spotifyTrackId;
+  // True when Spotify (SDK or Connect) is handling this track's playback.
+  const isSpotifyTrack = (spotifyReady || spotifyConnectMode) && !!current?.spotifyTrackId;
 
   useEffect(() => {
     if (!isPlaying) return;

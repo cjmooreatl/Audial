@@ -290,8 +290,8 @@ function SearchResults({
           {tracks.map((t, i) => (
             <div key={t.itunesTrackId} className={`search-row ${isCurrentTrack(t.itunesTrackId) ? 'is-playing' : ''}`}>
               <span className="row-num">{String(i + 1).padStart(2, '0')}</span>
-              <div onClick={() => t.previewUrl && onPreview(t)} style={{ cursor: t.previewUrl ? 'pointer' : 'default' }}>
-                <CoverArt url={t.coverUrl} size={120} hover={!!t.previewUrl} style={{ width: 56, height: 56 }} />
+              <div onClick={() => onPreview(t)} style={{ cursor: 'pointer' }}>
+                <CoverArt url={t.coverUrl} size={120} hover style={{ width: 56, height: 56 }} />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div className="subhead" style={{ fontSize: 17 }}>{t.title}</div>
@@ -301,9 +301,7 @@ function SearchResults({
               <button
                 className="btn-icon"
                 onClick={() => onFileTrack(t)}
-                disabled={!t.previewUrl}
                 aria-label="File"
-                title={t.previewUrl ? 'File to set' : 'No preview available'}
               >
                 +
               </button>

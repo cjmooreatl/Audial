@@ -134,7 +134,9 @@ export async function saveSpotifyTokens(tokens: {
   if (error) throw error;
 }
 
-async function doTokenRefresh(refreshToken: string): Promise<{ accessToken: string; expiresAt: number }> {
+async function doTokenRefresh(
+  refreshToken: string,
+): Promise<{ accessToken: string; refreshToken: string; expiresAt: number }> {
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -147,37 +149,57 @@ async function doTokenRefresh(refreshToken: string): Promise<{ accessToken: stri
 
   if (!res.ok) throw new Error('Spotify token refresh failed.');
   const data = await res.json();
-  return { accessToken: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
+  return {
+    accessToken: data.access_token,
+    // Spotify may rotate the refresh token — use the new one if provided, keep the old one otherwise.
+    refreshToken: data.refresh_token ?? refreshToken,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
 }
+
+// Single in-flight refresh promise — prevents concurrent calls from each firing a separate
+// refresh request, which would invalidate each other's tokens when Spotify rotates them.
+let refreshInFlight: Promise<string | null> | null = null;
 
 // Returns a valid access token, refreshing if expired. Returns null if not connected.
 export async function getValidSpotifyToken(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (refreshInFlight) return refreshInFlight;
 
-  const { data } = await supabase
-    .from('users')
-    .select('spotify_connected, spotify_access_token, spotify_refresh_token, spotify_token_expires_at')
-    .eq('id', user.id)
-    .single();
+  const run = async (): Promise<string | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  if (!data?.spotify_connected || !data.spotify_access_token) return null;
+    const { data } = await supabase
+      .from('users')
+      .select('spotify_connected, spotify_access_token, spotify_refresh_token, spotify_token_expires_at')
+      .eq('id', user.id)
+      .single();
 
-  // Still valid with a 60s buffer (coerce to number — bigint columns come back as strings)
-  if (Number(data.spotify_token_expires_at ?? 0) > Date.now() + 60_000) {
-    return data.spotify_access_token;
-  }
+    if (!data?.spotify_connected || !data.spotify_access_token) return null;
 
-  if (!data.spotify_refresh_token) return null;
+    // Still valid with a 60s buffer (coerce to number — bigint columns come back as strings)
+    if (Number(data.spotify_token_expires_at ?? 0) > Date.now() + 60_000) {
+      return data.spotify_access_token;
+    }
 
-  const { accessToken, expiresAt } = await doTokenRefresh(data.spotify_refresh_token);
+    if (!data.spotify_refresh_token) return null;
 
-  await supabase
-    .from('users')
-    .update({ spotify_access_token: accessToken, spotify_token_expires_at: expiresAt })
-    .eq('id', user.id);
+    const refreshed = await doTokenRefresh(data.spotify_refresh_token);
 
-  return accessToken;
+    await supabase
+      .from('users')
+      .update({
+        spotify_access_token: refreshed.accessToken,
+        spotify_refresh_token: refreshed.refreshToken,
+        spotify_token_expires_at: refreshed.expiresAt,
+      })
+      .eq('id', user.id);
+
+    return refreshed.accessToken;
+  };
+
+  refreshInFlight = run().finally(() => { refreshInFlight = null; });
+  return refreshInFlight;
 }
 
 export async function disconnectSpotify(): Promise<void> {
@@ -226,6 +248,42 @@ export function hashSpotifyId(id: string): number {
     h = Math.imul(h, 0x01000193);
   }
   return h >>> 0;
+}
+
+export async function getAvailableDevices(
+  token: string,
+): Promise<Array<{ id: string; name: string; type: string; isActive: boolean }>> {
+  const res = await fetch('https://api.spotify.com/v1/me/player/devices', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.devices ?? []).map((d: any) => ({
+    id: d.id as string,
+    name: d.name as string,
+    type: d.type as string,
+    isActive: d.is_active as boolean,
+  }));
+}
+
+export async function searchSpotifyTracks(token: string, query: string, limit = 10): Promise<SpotifyTrack[]> {
+  const qs = new URLSearchParams({ q: query, type: 'track', limit: String(Math.min(limit, 50)) });
+  const res = await fetch(`https://api.spotify.com/v1/search?${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Spotify search failed: HTTP ${res.status}`);
+  const data = await res.json();
+  return (data.tracks?.items ?? [])
+    .filter((t: any) => t?.type === 'track' && t?.id)
+    .map((t: any) => ({
+      spotifyId: t.id as string,
+      title: t.name as string,
+      artist: (t.artists?.[0]?.name ?? 'Unknown') as string,
+      albumName: (t.album?.name ?? '') as string,
+      coverUrl: (t.album?.images?.[0]?.url ?? null) as string | null,
+      previewUrl: (t.preview_url ?? null) as string | null,
+      durationMs: (t.duration_ms ?? 0) as number,
+    }));
 }
 
 export async function getPlaylistById(token: string, playlistId: string): Promise<{

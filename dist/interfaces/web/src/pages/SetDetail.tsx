@@ -68,7 +68,6 @@ export function SetDetailPage() {
   };
 
   const playOne = (t: TrackSnapshot) => {
-    if (!t.previewUrl) return;
     playPreview({
       ...t,
       setId: set.id,
@@ -153,7 +152,7 @@ export function SetDetailPage() {
         <div style={{ marginTop: 16 }}>
           {set.tracks.map((t: TrackSnapshot, i: number) => {
             const isThis = current?.itunesTrackId === t.itunesTrackId && (current?.setId === set.id || isPlaying);
-            const playable = !!t.previewUrl;
+            const playable = !!t.previewUrl || !!t.spotifyTrackId;
             return (
               <div
                 key={t.itunesTrackId}
@@ -166,7 +165,7 @@ export function SetDetailPage() {
                 <div style={{ minWidth: 0 }}>
                   <div className="subhead" style={{ fontSize: 17 }}>{t.title}</div>
                   <div className="caption smoke">
-                    {t.artist}{!playable ? ' · NO PREVIEW' : ''}
+                    {t.artist}{!t.previewUrl && !t.spotifyTrackId ? ' · NO PREVIEW' : ''}
                   </div>
                 </div>
                 <span className="mono-meta smoke">{formatDuration(t.durationMs)}</span>

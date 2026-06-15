@@ -1,5 +1,6 @@
 import { supabase } from './lib/supabase';
 import { searchTracks as iTunesSearchTracks, searchArtists as iTunesSearchArtists, lookupTrackByQuery } from './lib/itunes';
+import { getValidSpotifyToken, hashSpotifyId, searchSpotifyTracks } from './lib/spotify';
 import { seedCoverFor } from './brand/seedCovers';
 
 export interface TrackSnapshot {
@@ -147,6 +148,23 @@ function rowToFeedCard(row: any): FeedCard {
       avatarUrl: owner?.avatar_url ?? null,
     },
   };
+}
+
+// --- Helpers ---
+
+function spotifyTracksToSnapshots(tracks: Awaited<ReturnType<typeof searchSpotifyTracks>>): TrackSnapshot[] {
+  const now = Date.now();
+  return tracks.map((t) => ({
+    itunesTrackId: hashSpotifyId(t.spotifyId),
+    spotifyTrackId: t.spotifyId,
+    title: t.title,
+    artist: t.artist,
+    albumName: t.albumName,
+    coverUrl: t.coverUrl ?? '',
+    previewUrl: t.previewUrl,
+    durationMs: t.durationMs,
+    addedAt: now,
+  }));
 }
 
 // --- API ---
@@ -726,7 +744,10 @@ const api = {
         .sort((a, b) => (subCounts.get(b.id) ?? 0) - (subCounts.get(a.id) ?? 0))
         .map((u) => ({ channel: rowToChannelSummary(u), notes: u.notes, tunedIn: subCounts.get(u.id) ?? 0 }));
 
-      const tracks = await iTunesSearchTracks('new music friday', 6);
+      const spotifyToken = await getValidSpotifyToken();
+      const tracks = spotifyToken
+        ? spotifyTracksToSnapshots(await searchSpotifyTracks(spotifyToken, 'new music', 6))
+        : await iTunesSearchTracks('new music friday', 6);
       return { query: '', sets: [], channels, tracks };
     }
 
@@ -748,15 +769,19 @@ const api = {
     const ownerIds = [...new Set((matchedSets ?? []).map((s) => s.owner_id))];
     const channelIds = (matchedUsers ?? []).map((u) => u.id);
 
-    const [{ data: owners }, { data: tunedInRows }, tracks] = await Promise.all([
+    const [{ data: owners }, { data: tunedInRows }, spotifyToken] = await Promise.all([
       ownerIds.length
         ? supabase.from('users').select('id, handle, display_name, accent_color, avatar_url').in('id', ownerIds)
         : Promise.resolve({ data: [] as any[] }),
       channelIds.length
         ? supabase.from('subscriptions').select('channel_id').in('channel_id', channelIds)
         : Promise.resolve({ data: [] as any[] }),
-      iTunesSearchTracks(q, 8),
+      getValidSpotifyToken().catch(() => null),
     ]);
+
+    const tracks = spotifyToken
+      ? spotifyTracksToSnapshots(await searchSpotifyTracks(spotifyToken, q, 8))
+      : await iTunesSearchTracks(q, 8);
 
     const ownerMap = new Map((owners ?? []).map((o) => [o.id, rowToChannelSummary(o)]));
     const tunedInCounts = new Map<string, number>();
