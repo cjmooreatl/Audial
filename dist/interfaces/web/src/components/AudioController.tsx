@@ -68,9 +68,8 @@ async function spotifyResume(): Promise<void> {
 // Picks the best available Spotify Connect device: prefer active, then smartphone, then any.
 async function pickConnectDevice(): Promise<string | null> {
   const token = await getValidSpotifyToken().catch(() => null);
-  if (!token) { console.log('[Connect] no token'); return null; }
+  if (!token) return null;
   const devices = await getAvailableDevices(token);
-  console.log('[Connect] devices:', devices);
   const device =
     devices.find((d) => d.isActive) ??
     devices.find((d) => d.type === 'Smartphone') ??
@@ -92,7 +91,6 @@ async function connectPlay(deviceId: string | null, trackId: string): Promise<bo
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
   });
-  console.log('[Connect] play response:', res.status, 'deviceId:', deviceId);
   return res.ok || res.status === 204;
 }
 
@@ -244,6 +242,7 @@ export function AudioController() {
     const canUseSpotify = isPremium && isSpotifyConnected && !!current.spotifyTrackId;
     const useSDK = canUseSpotify && !isMobile && spotifyReady && !!spotifyDeviceId;
     const useConnect = canUseSpotify && isMobile;
+
 
     if (useSDK) {
       // ── Spotify Web Playback SDK (desktop) ──
