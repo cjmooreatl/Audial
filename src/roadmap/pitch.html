@@ -209,6 +209,15 @@ html, body {
   .progress { padding: 10px 12px; }
 }
 
+@media (max-height: 780px) {
+  .shell {
+    padding: clamp(14px, 2.4vw, 32px);
+    gap: clamp(10px, 1.4vw, 16px);
+  }
+  .bar-top { padding-bottom: clamp(8px, 0.8vw, 12px); }
+  .bar-bot { padding-top: clamp(8px, 0.8vw, 12px); }
+}
+
 /* ============================================ */
 /* SLIDE 1 — Title                              */
 /* ============================================ */
@@ -385,12 +394,12 @@ html, body {
 /* ============================================ */
 /* SLIDE 5 — Three Surfaces                     */
 /* ============================================ */
-.s5-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(28px, 4vw, 48px); padding-top: clamp(8px, 2vw, 16px); }
-.s5-headrow { display: flex; flex-wrap: wrap; align-items: end; gap: clamp(16px, 3vw, 40px); justify-content: space-between; }
+.s5-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(12px, 1.8vw, 22px); padding-top: clamp(4px, 0.8vw, 10px); }
+.s5-headrow { display: flex; flex-wrap: wrap; align-items: end; gap: clamp(10px, 1.8vw, 24px); justify-content: space-between; }
 .s5-h {
   font-family: 'Clash Display', sans-serif;
   font-weight: 600;
-  font-size: clamp(28px, 4.4vw, 64px);
+  font-size: clamp(22px, 3vw, 44px);
   letter-spacing: -0.03em;
   line-height: 0.98;
   max-width: 18ch;
@@ -398,13 +407,13 @@ html, body {
 .s5-cols {
   display: grid;
   grid-template-columns: 1fr;
-  gap: clamp(24px, 2.4vw, 32px);
+  gap: clamp(10px, 1.4vw, 18px);
 }
 .s5-col {
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 1.4vw, 18px);
-  padding: clamp(20px, 2vw, 28px) 0 0 0;
+  gap: clamp(6px, 0.8vw, 10px);
+  padding: clamp(10px, 1.2vw, 16px) 0 0 0;
   border-top: 1px solid var(--ink);
 }
 .s5-col .label {
@@ -418,7 +427,7 @@ html, body {
 .s5-col .t {
   font-family: 'Clash Display', sans-serif;
   font-weight: 600;
-  font-size: clamp(24px, 2.6vw, 36px);
+  font-size: clamp(18px, 2vw, 26px);
   letter-spacing: -0.02em;
   line-height: 1;
   color: var(--ink);
@@ -431,9 +440,9 @@ html, body {
 }
 .s5-col .img-wrap {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .s5-col .img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -506,7 +515,7 @@ html, body {
 /* ============================================ */
 /* SLIDE 7 — Social Fabric (DARK)               */
 /* ============================================ */
-.s7-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(28px, 4vw, 48px); padding-top: clamp(8px, 2vw, 16px); }
+.s7-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(14px, 2vw, 26px); padding-top: clamp(4px, 0.8vw, 10px); }
 .s7-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -514,13 +523,13 @@ html, body {
   border-left: 1px solid rgba(242,238,227,0.18);
 }
 .s7-cell {
-  padding: clamp(20px, 2.4vw, 32px);
+  padding: clamp(14px, 1.6vw, 22px);
   border-right: 1px solid rgba(242,238,227,0.18);
   border-bottom: 1px solid rgba(242,238,227,0.18);
   display: flex;
   flex-direction: column;
-  gap: clamp(10px, 1.4vw, 16px);
-  min-height: clamp(170px, 18vw, 220px);
+  gap: clamp(8px, 1vw, 12px);
+  min-height: clamp(110px, 13vw, 170px);
 }
 .s7-cell .lab {
   font-family: 'Geist Mono', monospace;
@@ -553,11 +562,11 @@ html, body {
 /* ============================================ */
 /* SLIDE 8 — Roadmap                            */
 /* ============================================ */
-.s8-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(20px, 3vw, 36px); padding-top: clamp(8px, 2vw, 16px); }
+.s8-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(10px, 1.8vw, 22px); padding-top: clamp(4px, 0.8vw, 10px); }
 .s8-h {
   font-family: 'Clash Display', sans-serif;
   font-weight: 600;
-  font-size: clamp(28px, 4.2vw, 56px);
+  font-size: clamp(20px, 3vw, 40px);
   letter-spacing: -0.03em;
   line-height: 0.98;
   max-width: 20ch;
@@ -568,7 +577,7 @@ html, body {
   grid-template-columns: 60px 1fr;
   gap: clamp(16px, 2.4vw, 32px);
   align-items: baseline;
-  padding: clamp(14px, 1.6vw, 20px) 0;
+  padding: clamp(9px, 1.1vw, 13px) 0;
   border-bottom: 1px solid var(--ink);
 }
 .s8-row .num {
@@ -604,17 +613,17 @@ html, body {
 /* ============================================ */
 /* SLIDE 9 — Vision                             */
 /* ============================================ */
-.s9-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(28px, 4vw, 48px); padding-top: clamp(8px, 2vw, 16px); }
+.s9-main { display: flex; flex-direction: column; justify-content: center; gap: clamp(14px, 2vw, 26px); padding-top: clamp(4px, 0.8vw, 10px); }
 .s9-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: clamp(28px, 4vw, 56px);
+  gap: clamp(18px, 2.8vw, 36px);
   align-items: center;
 }
 .s9-h {
   font-family: 'Clash Display', sans-serif;
   font-weight: 600;
-  font-size: clamp(40px, 8vw, 128px);
+  font-size: clamp(36px, 6vw, 92px);
   letter-spacing: -0.045em;
   line-height: 0.92;
 }
@@ -624,14 +633,14 @@ html, body {
   padding: 0 0.06em;
   display: inline-block;
 }
-.s9-body { display: flex; flex-direction: column; gap: clamp(14px, 1.6vw, 22px); max-width: 60ch; }
+.s9-body { display: flex; flex-direction: column; gap: clamp(10px, 1.2vw, 16px); max-width: 60ch; }
 .s9-aside { display: flex; flex-direction: column; gap: 16px; }
 .s9-img {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   display: block;
-  max-width: 360px;
+  max-width: 260px;
 }
 .s9-onair {
   display: inline-flex;
