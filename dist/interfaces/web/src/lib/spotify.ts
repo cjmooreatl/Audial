@@ -51,6 +51,7 @@ export async function startSpotifyOAuth(): Promise<void> {
     code_challenge_method: 'S256',
     code_challenge: challenge,
     scope: SCOPES,
+    show_dialog: 'true',
   });
 
   const authUrl = `https://accounts.spotify.com/authorize?${params.toString().replace(/\+/g, '%20')}`;
@@ -97,7 +98,11 @@ export async function exchangeSpotifyCode(code: string): Promise<{
   if (profileRes.ok) {
     const profile = await profileRes.json();
     userId = profile.id ?? '';
-    isPremium = profile.product === 'premium';
+    isPremium = profile.product === 'premium' || (profile.product ?? '').toLowerCase().includes('premium');
+  } else {
+    // user-read-private is restricted for some accounts in Spotify development mode.
+    // Default to true and let the SDK account_error event correct it at playback time.
+    isPremium = true;
   }
 
   return {
@@ -119,19 +124,30 @@ export async function saveSpotifyTokens(tokens: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated.');
 
-  const { error } = await supabase
+  const payload = {
+    spotify_connected: true,
+    spotify_access_token: tokens.accessToken,
+    spotify_refresh_token: tokens.refreshToken,
+    spotify_token_expires_at: tokens.expiresAt,
+    spotify_user_id: tokens.userId,
+    spotify_is_premium: tokens.isPremium,
+  };
+
+  const { error, data } = await supabase
     .from('users')
-    .update({
-      spotify_connected: true,
-      spotify_access_token: tokens.accessToken,
-      spotify_refresh_token: tokens.refreshToken,
-      spotify_token_expires_at: tokens.expiresAt,
-      spotify_user_id: tokens.userId,
-      spotify_is_premium: tokens.isPremium,
-    })
-    .eq('id', user.id);
+    .update(payload)
+    .eq('id', user.id)
+    .select('id');
 
   if (error) throw error;
+
+  if (!data || data.length === 0) {
+    // Row doesn't exist yet — create it now
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert({ id: user.id, email: user.email ?? '', ...payload });
+    if (insertError) throw insertError;
+  }
 }
 
 async function doTokenRefresh(

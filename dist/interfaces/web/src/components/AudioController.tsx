@@ -179,6 +179,12 @@ export function AudioController() {
       player.addListener('account_error', ({ message }: { message: string }) => {
         console.warn('[Spotify SDK] account error (Premium required):', message);
         setSpotifyDevice(null, false);
+        // Correct the optimistic isPremium flag saved during connect
+        import('../lib/supabase').then(({ supabase }) =>
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) supabase.from('users').update({ spotify_is_premium: false }).eq('id', user.id);
+          })
+        );
       });
 
       player.connect();
@@ -277,13 +283,17 @@ export function AudioController() {
           prevPositionRef.current = 0;
           setSpotifyState(0);
           ;(async () => {
+            const token2 = await getValidSpotifyToken();
+            const devicesRaw = token2 ? await getAvailableDevices(token2) : [];
             const deviceId = await pickConnectDevice();
             if (deviceId) setSpotifyDevice(deviceId, true);
-            // Try with the discovered device first; if none found, try Spotify's "last active"
             const ok = await connectPlay(deviceId, trackId);
             if (!ok) {
-              // Both attempts failed — fall back to preview or skip
-              if (previewUrl && audioRef.current) {
+              if (devicesRaw.length === 0) {
+                // No Spotify device active — prompt user to open the Spotify app
+                useAudio.setState({ isPlaying: false });
+                alert('Open the Spotify app on your device, then tap play again.');
+              } else if (previewUrl && audioRef.current) {
                 audioRef.current.src = previewUrl;
                 audioRef.current.play().catch(() => {});
               } else {
