@@ -1,7 +1,15 @@
 // @ts-nocheck
-// Spotify playlist resolver — uses Client Credentials (no user auth needed)
-// to fetch any public playlist by URL and return its track metadata.
-// The frontend handles iTunes matching and set creation after this returns.
+// Spotify catalog search — uses Client Credentials (app-only auth, no
+// per-user login, no Extended Quota requirement) to widen the search bar's
+// catalog beyond iTunes' Search API. Never returns a preview_url (Spotify
+// stopped providing them reliably via the Web API in Nov 2024); the frontend
+// resolves playback via iTunes/Deezer previews separately.
+//
+// Playlist-URL import used to live here too, but Spotify's Web API returns
+// 403 on playlist track-listing reads for Client Credentials tokens (as of
+// the same Nov 2024 policy change) — only per-user Authorization Code tokens
+// can read a playlist's tracks now, which is gated behind Extended Quota.
+// That feature is shelved on the spotify-full-playback branch.
 //
 // Deploy secrets:
 //   supabase secrets set SPOTIFY_CLIENT_ID=xxx SPOTIFY_CLIENT_SECRET=yyy
@@ -24,7 +32,14 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Cached across warm invocations of this isolate — avoids re-authenticating
+// on every request for a token that's valid up to an hour.
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
 async function getClientToken(): Promise<string> {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
+    return cachedToken.token;
+  }
   if (!CLIENT_ID || !CLIENT_SECRET) {
     throw new Error('Spotify credentials are not configured on this server.');
   }
@@ -38,12 +53,31 @@ async function getClientToken(): Promise<string> {
   });
   if (!res.ok) throw new Error('Failed to obtain Spotify client credentials token.');
   const data = await res.json();
-  return data.access_token as string;
+  cachedToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
+  return cachedToken.token;
 }
 
-function extractPlaylistId(url: string): string | null {
-  const match = url.match(/playlist\/([a-zA-Z0-9]+)/);
-  return match?.[1] ?? null;
+async function search(query: string, limit: number) {
+  const token = await getClientToken();
+  const qs = new URLSearchParams({ q: query, type: 'track', limit: String(Math.min(limit, 50)) });
+  const res = await fetch(`https://api.spotify.com/v1/search?${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return json({ error: `Spotify search failed: HTTP ${res.status}` }, 502);
+
+  const data = await res.json();
+  const tracks = (data.tracks?.items ?? [])
+    .filter((t: any) => t?.type === 'track' && t?.id)
+    .map((t: any) => ({
+      spotifyId: t.id as string,
+      title: t.name as string,
+      artist: (t.artists?.[0]?.name ?? 'Unknown') as string,
+      albumName: (t.album?.name ?? '') as string,
+      coverUrl: (t.album?.images?.[0]?.url ?? null) as string | null,
+      durationMs: (t.duration_ms ?? 0) as number,
+    }));
+
+  return json({ tracks });
 }
 
 serve(async (req) => {
@@ -52,59 +86,9 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
-    if (!url) return json({ error: 'url is required.' }, 400);
-
-    const playlistId = extractPlaylistId(url);
-    if (!playlistId) return json({ error: 'Invalid Spotify playlist URL.' }, 400);
-
-    const token = await getClientToken();
-
-    // Playlist metadata — no ?fields filter so all playlist types are supported
-    const metaRes = await fetch(
-      `https://api.spotify.com/v1/playlists/${playlistId}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
-    if (metaRes.status === 404) return json({ error: 'Playlist not found.' }, 404);
-    if (!metaRes.ok) {
-      const metaBody = await metaRes.json().catch(() => ({}));
-      const msg = (metaBody as any).error?.message ?? `HTTP ${metaRes.status}`;
-      return json({ error: `Could not fetch playlist: ${msg}.` }, 400);
-    }
-    const meta = await metaRes.json();
-
-    // Paginate all tracks
-    const tracks: { title: string; artist: string; albumName: string; coverUrl: string | null }[] = [];
-    let nextUrl: string | null =
-      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100`;
-
-    while (nextUrl) {
-      const tracksRes: Response = await fetch(nextUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!tracksRes.ok) break;
-      const data = await tracksRes.json();
-
-      for (const item of data.items ?? []) {
-        const t = item?.track;
-        if (!t?.name) continue;
-        tracks.push({
-          title: t.name,
-          artist: t.artists?.[0]?.name ?? 'Unknown',
-          albumName: t.album?.name ?? '',
-          coverUrl: t.album?.images?.[0]?.url ?? null,
-        });
-      }
-      nextUrl = data.next ?? null;
-    }
-
-    return json({
-      name: meta.name,
-      description: meta.description || null,
-      coverUrl: meta.images?.[0]?.url ?? null,
-      url: meta.external_urls?.spotify ?? url,
-      tracks,
-    });
+    const { query, limit } = await req.json();
+    if (!query) return json({ error: 'query is required.' }, 400);
+    return await search(query, limit ?? 10);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal error.';
     return json({ error: message }, 500);

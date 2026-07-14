@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import useSWR from 'swr';
 import { useLocation, useRoute } from 'wouter';
-import { IconShare, IconTrash, IconPencil } from '@tabler/icons-react';
+import { IconShare, IconTrash, IconPencil, IconExternalLink } from '@tabler/icons-react';
 import api, { type TrackSnapshot } from '../api';
 import { CoverArt } from '../components/CoverArt';
 import { SectionHeader } from '../components/SectionHeader';
@@ -132,6 +132,16 @@ export function SetDetailPage() {
             <button className="btn btn-line" onClick={share}>
               <IconShare size={14} stroke={1.5} /> SHARE
             </button>
+            {set.playlistUrl && (
+              <a
+                href={set.playlistUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-line"
+              >
+                <IconExternalLink size={14} stroke={1.5} /> PLAYLIST
+              </a>
+            )}
             {viewerIsOwner && (
               <>
                 <button className="btn btn-line" onClick={() => openEditSet(setId)}>
@@ -152,7 +162,7 @@ export function SetDetailPage() {
         <div style={{ marginTop: 16 }}>
           {set.tracks.map((t: TrackSnapshot, i: number) => {
             const isThis = current?.itunesTrackId === t.itunesTrackId && (current?.setId === set.id || isPlaying);
-            const playable = !!t.previewUrl || !!t.spotifyTrackId;
+            const playable = !!t.previewUrl;
             return (
               <div
                 key={t.itunesTrackId}
@@ -165,7 +175,7 @@ export function SetDetailPage() {
                 <div style={{ minWidth: 0 }}>
                   <div className="subhead" style={{ fontSize: 17 }}>{t.title}</div>
                   <div className="caption smoke">
-                    {t.artist}{!t.previewUrl && !t.spotifyTrackId ? ' · NO PREVIEW' : ''}
+                    {t.artist}{!t.previewUrl ? ' · NO PREVIEW' : ''}
                   </div>
                 </div>
                 <span className="mono-meta smoke">{formatDuration(t.durationMs)}</span>

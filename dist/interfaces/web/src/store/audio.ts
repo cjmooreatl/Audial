@@ -31,12 +31,6 @@ interface AudioState {
   channelMeta: { setId: string; setTitle: string; ownerHandle: string; ownerAccentColor: string } | null;
   // Preview source resumption
   resumeSource: { source: AudioSource; track: NowPlayingTrack | null } | null;
-  // Spotify playback state (SDK on desktop, Connect on mobile)
-  spotifyDeviceId: string | null;
-  spotifyReady: boolean;
-  spotifyConnectMode: boolean;   // true when using Spotify Connect instead of the Web Playback SDK
-  spotifyPositionMs: number;     // last known position from SDK or Connect poll
-  spotifyStateTimestamp: number; // Date.now() when position was recorded
 
   // Actions
   markInteracted: () => void;
@@ -53,9 +47,6 @@ interface AudioState {
   playPreview: (track: NowPlayingTrack) => void;
   onEnded: () => Promise<void>;
   pushRecent: (id: number) => void;
-  setSpotifyDevice: (id: string | null, ready: boolean) => void;
-  setSpotifyConnectMode: (mode: boolean) => void;
-  setSpotifyState: (positionMs: number) => void;
 }
 
 export const useAudio = create<AudioState>((set, get) => ({
@@ -68,11 +59,6 @@ export const useAudio = create<AudioState>((set, get) => ({
   channelIndex: 0,
   channelMeta: null,
   resumeSource: null,
-  spotifyDeviceId: null,
-  spotifyReady: false,
-  spotifyConnectMode: false,
-  spotifyPositionMs: 0,
-  spotifyStateTimestamp: 0,
 
   markInteracted: () => set({ hasInteracted: true }),
 
@@ -132,12 +118,8 @@ export const useAudio = create<AudioState>((set, get) => ({
     }
   },
 
-  setSpotifyDevice: (id, ready) => set({ spotifyDeviceId: id, spotifyReady: ready }),
-  setSpotifyConnectMode: (mode) => set({ spotifyConnectMode: mode }),
-  setSpotifyState: (positionMs) => set({ spotifyPositionMs: positionMs, spotifyStateTimestamp: Date.now() }),
-
   playChannel: (tracks, meta, startIndex = 0) => {
-    const playable = tracks.filter((t) => t.previewUrl || t.spotifyTrackId);
+    const playable = tracks.filter((t) => t.previewUrl);
     if (!playable.length) return;
     const t = playable[startIndex] ?? playable[0];
     set({

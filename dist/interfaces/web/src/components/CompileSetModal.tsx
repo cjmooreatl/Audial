@@ -9,6 +9,7 @@ import api, { type TrackSnapshot } from '../api';
 import { useUI } from '../store/ui';
 import { useAuth } from '../store/auth';
 import { formatDuration } from '../brand/format';
+import { isValidUrl } from '../lib/validate';
 
 export function CompileSetModal() {
   const open = useUI((s) => s.compileOpen);
@@ -20,6 +21,7 @@ export function CompileSetModal() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [playlistUrl, setPlaylistUrl] = useState('');
   const [tracks, setTracks] = useState<TrackSnapshot[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,6 +39,7 @@ export function CompileSetModal() {
       setTitle('');
       setDescription('');
       setCoverUrl(null);
+      setPlaylistUrl('');
       setTracks(preload ? [{ ...preload, addedAt: Date.now() }] : []);
       setSearchQuery('');
       setSearchResults([]);
@@ -54,7 +57,7 @@ export function CompileSetModal() {
     setSearching(true);
     searchTimer.current = window.setTimeout(async () => {
       try {
-        const { tracks } = await api.searchITunesTracks({ query: searchQuery, limit: 12 });
+        const { tracks } = await api.searchTracks({ query: searchQuery, limit: 12 });
         setSearchResults(tracks);
       } catch {
         setSearchResults([]);
@@ -82,6 +85,10 @@ export function CompileSetModal() {
       setError('Title is required.');
       return;
     }
+    if (!isValidUrl(playlistUrl)) {
+      setError("That doesn't look like a valid URL.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -90,6 +97,7 @@ export function CompileSetModal() {
         description: description.trim() || undefined,
         coverUrl: coverUrl ?? undefined,
         tracks,
+        playlistUrl: playlistUrl.trim() || null,
       });
       await refreshAuth();
       close();
@@ -178,6 +186,18 @@ export function CompileSetModal() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Playlist link */}
+      <div style={{ marginTop: 24 }}>
+        <div className="mono-label" style={{ marginBottom: 8 }}>PLAYLIST LINK — OPTIONAL</div>
+        <input
+          className="input-text"
+          placeholder="https://open.spotify.com/playlist/..."
+          value={playlistUrl}
+          onChange={(e) => setPlaylistUrl(e.target.value)}
+          style={{ fontFamily: 'var(--font-mono)' }}
+        />
       </div>
 
       {/* Track search */}

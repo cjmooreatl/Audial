@@ -12,7 +12,7 @@ interface UIState {
   compilePreloadTrack: TrackSnapshot | null;
   shareOpen: boolean;
   editChannelOpen: boolean;
-  connectSpotifyOpen: boolean;
+  linksOpen: boolean;
   // Edit Set: holds the setId being edited, or null when closed.
   editSetId: string | null;
 
@@ -24,8 +24,8 @@ interface UIState {
   closeShare: () => void;
   openEditChannel: () => void;
   closeEditChannel: () => void;
-  openConnectSpotify: () => void;
-  closeConnectSpotify: () => void;
+  openLinks: () => void;
+  closeLinks: () => void;
   openEditSet: (setId: string) => void;
   closeEditSet: () => void;
 }
@@ -37,7 +37,7 @@ export const useUI = create<UIState>((set) => ({
   compilePreloadTrack: null,
   shareOpen: false,
   editChannelOpen: false,
-  connectSpotifyOpen: false,
+  linksOpen: false,
   editSetId: null,
 
   openAuth: (intent) => set({ authOpen: true, authIntent: intent ?? null }),
@@ -48,8 +48,8 @@ export const useUI = create<UIState>((set) => ({
   closeShare: () => set({ shareOpen: false }),
   openEditChannel: () => set({ editChannelOpen: true }),
   closeEditChannel: () => set({ editChannelOpen: false }),
-  openConnectSpotify: () => set({ connectSpotifyOpen: true }),
-  closeConnectSpotify: () => set({ connectSpotifyOpen: false }),
+  openLinks: () => set({ linksOpen: true }),
+  closeLinks: () => set({ linksOpen: false }),
   openEditSet: (setId) => set({ editSetId: setId }),
   closeEditSet: () => set({ editSetId: null }),
 }));

@@ -8,12 +8,11 @@ import { CompileSetModal } from './components/CompileSetModal';
 import { ShareSetModal } from './components/ShareSetModal';
 import { EditChannelModal } from './components/EditChannelModal';
 import { EditSetModal } from './components/EditSetModal';
-import { ConnectSpotifyModal } from './components/ConnectSpotifyModal';
+import { LinksModal } from './components/LinksModal';
 import { HomePage } from './pages/Home';
 import { ChannelPage } from './pages/Channel';
 import { SearchPage } from './pages/Search';
 import { SetDetailPage } from './pages/SetDetail';
-import { SpotifyCallback } from './pages/SpotifyCallback';
 import { useAuth, bootstrapAuth } from './store/auth';
 import './index.css';
 import './pages.css';
@@ -57,7 +56,6 @@ export default function App() {
             <Route path="/search" component={SearchPage} />
             <Route path="/c/:handle" component={ChannelPage} />
             <Route path="/s/:setId" component={SetDetailPage} />
-            <Route path="/auth/spotify/callback" component={SpotifyCallback} />
             <Route>
               <div style={{ padding: '96px 24px' }}>
                 <h1 className="display">Off air.</h1>
@@ -73,7 +71,6 @@ export default function App() {
       <ShareSetModal />
       <EditChannelModal />
       <EditSetModal />
-      <ConnectSpotifyModal />
-    </>
+      <LinksModal /></>
   );
 }

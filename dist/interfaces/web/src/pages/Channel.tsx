@@ -2,8 +2,16 @@ import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { useLocation, useRoute } from 'wouter';
 import { motion } from 'motion/react';
-import { IconBrandSpotify, IconShare, IconVolume, IconVolumeOff } from '@tabler/icons-react';
-import api, { type ChannelSetSummary } from '../api';
+import {
+  IconShare,
+  IconVolume,
+  IconVolumeOff,
+  IconBrandSpotify,
+  IconBrandApple,
+  IconBrandInstagram,
+  IconBrandX,
+} from '@tabler/icons-react';
+import api, { type ChannelSetSummary, type ChannelFull } from '../api';
 import { SectionHeader } from '../components/SectionHeader';
 import { CoverArt } from '../components/CoverArt';
 import { Avatar } from '../components/Avatar';
@@ -41,6 +49,39 @@ function Section({
   );
 }
 
+const PROFILE_LINK_FIELDS: Array<{
+  key: keyof Pick<ChannelFull, 'spotifyProfileUrl' | 'appleMusicProfileUrl' | 'instagramUrl' | 'xUrl'>;
+  label: string;
+  icon: typeof IconBrandSpotify;
+}> = [
+  { key: 'spotifyProfileUrl', label: 'Spotify', icon: IconBrandSpotify },
+  { key: 'appleMusicProfileUrl', label: 'Apple Music', icon: IconBrandApple },
+  { key: 'instagramUrl', label: 'Instagram', icon: IconBrandInstagram },
+  { key: 'xUrl', label: 'X', icon: IconBrandX },
+];
+
+function ProfileLinks({ channel }: { channel: ChannelFull }) {
+  const links = PROFILE_LINK_FIELDS.filter((f) => channel[f.key]);
+  if (!links.length) return null;
+  return (
+    <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+      {links.map(({ key, label, icon: Icon }) => (
+        <a
+          key={key}
+          href={channel[key]!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-icon"
+          aria-label={`Open ${label} profile`}
+          title={label}
+        >
+          <Icon size={18} stroke={1.5} />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function ChannelPage() {
   const [, params] = useRoute('/c/:handle');
   const [, navigate] = useLocation();
@@ -50,7 +91,7 @@ export function ChannelPage() {
   const myChannel = useAuth((s) => s.channel);
   const openAuth = useUI((s) => s.openAuth);
   const openEditChannel = useUI((s) => s.openEditChannel);
-  const openConnectSpotify = useUI((s) => s.openConnectSpotify);
+  const openLinks = useUI((s) => s.openLinks);
   const openShare = useUI((s) => s.openShare);
   const playChannel = useAudio((s) => s.playChannel);
   const pause = useAudio((s) => s.pause);
@@ -206,6 +247,7 @@ export function ChannelPage() {
             {ch.notes && (
               <p className="caption" style={{ marginTop: 16, maxWidth: 480 }}>{ch.notes}</p>
             )}
+            <ProfileLinks channel={ch} />
           </div>
           <div>
             <div className="mono-meta smoke" style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 24 }}>
@@ -216,13 +258,7 @@ export function ChannelPage() {
                 <>
                   <button className="btn btn-fill" onClick={openShare}>SHARE A SET</button>
                   <button className="btn btn-line" onClick={openEditChannel}>EDIT CHANNEL</button>
-                  <button
-                    className="btn btn-line"
-                    onClick={openConnectSpotify}
-                  >
-                    <IconBrandSpotify size={14} stroke={1.5} />
-                    {myChannel?.spotifyConnected ? 'SPOTIFY CONNECTED' : 'CONNECT SPOTIFY'}
-                  </button>
+                  <button className="btn btn-line" onClick={openLinks}>LINKS</button>
                 </>
               ) : (
                 <button

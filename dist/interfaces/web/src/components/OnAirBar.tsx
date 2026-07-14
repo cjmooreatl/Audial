@@ -25,9 +25,6 @@ export function OnAirBar() {
   const openAuth = useUI((s) => s.openAuth);
   const [, navigate] = useLocation();
 
-  const spotifyReady = useAudio((s) => s.spotifyReady);
-  const spotifyConnectMode = useAudio((s) => s.spotifyConnectMode);
-
   const [progress, setProgress] = useState(0); // 0..1
   const [elapsed, setElapsed] = useState(0); // seconds
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -35,30 +32,16 @@ export function OnAirBar() {
   // overlay chip can render and the cover can punch.
   const [filed, setFiled] = useState<string | null>(null);
 
-  // True when Spotify (SDK or Connect) is handling this track's playback.
-  const isSpotifyTrack = (spotifyReady || spotifyConnectMode) && !!current?.spotifyTrackId;
-
   useEffect(() => {
     if (!isPlaying) return;
     const id = window.setInterval(() => {
-      if (isSpotifyTrack) {
-        // Estimate position: last known SDK position + time elapsed since it was recorded
-        const { spotifyPositionMs: pos, spotifyStateTimestamp: ts } = useAudio.getState();
-        const estimated = pos + (Date.now() - ts);
-        const dur = current?.durationMs ?? 0;
-        if (dur > 0) {
-          setProgress(Math.min(1, estimated / dur));
-          setElapsed(Math.min(dur / 1000, estimated / 1000));
-        }
-      } else {
-        const el = document.querySelector('audio') as HTMLAudioElement | null;
-        if (!el || !el.duration || isNaN(el.duration)) return;
-        setProgress(el.currentTime / el.duration);
-        setElapsed(el.currentTime);
-      }
+      const el = document.querySelector('audio') as HTMLAudioElement | null;
+      if (!el || !el.duration || isNaN(el.duration)) return;
+      setProgress(el.currentTime / el.duration);
+      setElapsed(el.currentTime);
     }, 200);
     return () => window.clearInterval(id);
-  }, [isPlaying, isSpotifyTrack, current?.durationMs]);
+  }, [isPlaying, current?.durationMs]);
 
   // Reset progress when the track changes.
   useEffect(() => {
@@ -72,7 +55,7 @@ export function OnAirBar() {
     return <div className="on-air-rail empty" aria-hidden="true" />;
   }
 
-  const previewSeconds = isSpotifyTrack ? current.durationMs / 1000 : Math.min(30, current.durationMs / 1000);
+  const previewSeconds = Math.min(30, current.durationMs / 1000);
 
   const handleFile = () => {
     if (!isAuth) {

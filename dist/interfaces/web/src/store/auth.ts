@@ -61,8 +61,10 @@ export const useAuth = create<AuthState>((set) => ({
         avatarUrl: profile.avatar_url,
         onboardingComplete: profile.onboarding_complete,
         counts: { sets: 0, tunedIn: 0, tunedTo: 0 },
-        spotifyConnected: profile.spotify_connected ?? false,
-        spotifyIsPremium: profile.spotify_is_premium ?? false,
+        spotifyProfileUrl: profile.spotify_profile_url ?? null,
+        appleMusicProfileUrl: profile.apple_music_profile_url ?? null,
+        instagramUrl: profile.instagram_url ?? null,
+        xUrl: profile.x_url ?? null,
       };
 
       set({

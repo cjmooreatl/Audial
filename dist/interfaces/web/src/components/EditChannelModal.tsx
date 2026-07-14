@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { IconX } from '@tabler/icons-react';
 import { Modal } from './Modal';
 import { Spinner } from './Spinner';
@@ -34,8 +34,13 @@ export function EditChannelModal() {
   );
   const sets: ChannelSetSummary[] = (chData as any)?.sets ?? [];
 
+  // Prefill only on the actual open transition, not on every re-render where
+  // `channel` gets a new object reference (e.g. a tab-focus-triggered auth
+  // token refresh while the modal is still open) — otherwise an in-flight
+  // refresh silently resets whatever the user has already edited.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (open && channel) {
+    if (open && !wasOpenRef.current && channel) {
       setDisplayName(channel.displayName ?? '');
       setNotes(channel.notes ?? '');
       setAccent(channel.accentColor || '#7A1F1F');
@@ -46,6 +51,7 @@ export function EditChannelModal() {
       setError(null);
       setSetPage(0);
     }
+    wasOpenRef.current = open;
   }, [open, channel]);
 
   useEffect(() => {
@@ -89,6 +95,10 @@ export function EditChannelModal() {
         coSigns,
       });
       await refresh();
+      // The Channel page caches its own copy of this data under ['channel', handle] —
+      // refresh() only updates the auth store, so revalidate that cache directly or
+      // the page keeps showing stale display name/notes/etc. until a manual reload.
+      if (channel?.handle) await mutate(['channel', channel.handle]);
       close();
     } catch (err: any) {
       setError(err?.message ?? 'Signal lost. Retry.');

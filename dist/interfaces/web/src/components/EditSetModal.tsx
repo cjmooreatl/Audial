@@ -26,6 +26,7 @@ import { SEED_COVER_LIST, sizedCover } from '../brand/seedCovers';
 import api, { type TrackSnapshot } from '../api';
 import { useUI } from '../store/ui';
 import { formatDuration } from '../brand/format';
+import { isValidUrl } from '../lib/validate';
 import { mutate as swrMutate } from 'swr';
 
 // One row inside the reorderable track list. The mono number is sequential
@@ -99,6 +100,7 @@ export function EditSetModal() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [playlistUrl, setPlaylistUrl] = useState('');
   const [tracks, setTracks] = useState<TrackSnapshot[]>([]);
   const [showCoverPicker, setShowCoverPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -113,6 +115,7 @@ export function EditSetModal() {
       setTitle(set.title);
       setDescription(set.description ?? '');
       setCoverUrl(set.coverUrl);
+      setPlaylistUrl(set.playlistUrl ?? '');
       setTracks(set.tracks ?? []);
       setShowCoverPicker(false);
       setError(null);
@@ -166,6 +169,10 @@ export function EditSetModal() {
       setError('Title is required.');
       return;
     }
+    if (!isValidUrl(playlistUrl)) {
+      setError("That doesn't look like a valid URL.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -175,6 +182,7 @@ export function EditSetModal() {
         description: description.trim() ? description.trim() : null,
         coverUrl,
         tracks,
+        playlistUrl: playlistUrl.trim() || null,
       });
       // Refresh the set detail and any feed/channel queries that touch it.
       await swrMutate(['/getSet', setId]);
@@ -302,6 +310,18 @@ export function EditSetModal() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Playlist link */}
+          <div style={{ marginTop: 24 }}>
+            <div className="mono-label" style={{ marginBottom: 8 }}>PLAYLIST LINK — OPTIONAL</div>
+            <input
+              className="input-text"
+              placeholder="Spotify, Apple Music, YouTube, etc."
+              value={playlistUrl}
+              onChange={(e) => setPlaylistUrl(e.target.value)}
+              style={{ fontFamily: 'var(--font-mono)' }}
+            />
           </div>
 
           {/* Track list — drag to reorder, X to delete */}
