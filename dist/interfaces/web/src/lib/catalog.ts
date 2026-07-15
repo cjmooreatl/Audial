@@ -76,7 +76,13 @@ export async function searchCatalog(query: string, limit = 8): Promise<TrackSnap
 
   const [itunesResults, spotifyResults] = await Promise.all([
     iTunesSearchTracks(query, limit),
-    searchSpotifyCatalog(query, limit).catch(() => [] as SpotifyCatalogTrack[]),
+    // Spotify's Client Credentials app runs under Developer Mode, which hard
+    // caps the search `limit` param at 10 — anything above that returns a
+    // plain HTTP 400 ("Invalid limit") from Spotify itself. That failure was
+    // getting silently swallowed by the .catch() below, so callers asking
+    // for more than 10 total results (e.g. the set modals' limit of 12)
+    // always got zero Spotify results with no visible error.
+    searchSpotifyCatalog(query, Math.min(limit, 10)).catch(() => [] as SpotifyCatalogTrack[]),
   ]);
 
   const seen = new Set(itunesResults.map((t) => normKey(t.title, t.artist)));

@@ -63,7 +63,10 @@ async function search(query: string, limit: number) {
   const res = await fetch(`https://api.spotify.com/v1/search?${qs}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return json({ error: `Spotify search failed: HTTP ${res.status}` }, 502);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    return json({ error: `Spotify search failed: HTTP ${res.status}`, detail }, 502);
+  }
 
   const data = await res.json();
   const tracks = (data.tracks?.items ?? [])
