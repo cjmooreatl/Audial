@@ -17,12 +17,22 @@
   height: 100%;
   gap: 24px;
 }
+.wordmark-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.beta-tag {
+  padding: 3px 7px;
+  border: 1px solid var(--mist);
+  border-radius: 3px;
+}
 .top-nav-links {
   display: flex;
   gap: 24px;
   align-items: center;
+  justify-content: center;
   flex: 1;
-  margin-left: 32px;
 }
 .nav-link {
   position: relative;
@@ -322,9 +332,12 @@
   display: flex;
   gap: 8px;
   justify-content: center;
+  width: 100%;
 }
 .code-box {
-  width: 48px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 48px;
   height: 56px;
   border: 1px solid var(--ink);
   background: var(--bone);
@@ -349,7 +362,7 @@
   100% { background: var(--bone); }
 }
 @media (min-width: 480px) {
-  .code-box { width: 56px; height: 56px; font-size: 28px; }
+  .code-box { max-width: 56px; height: 56px; font-size: 28px; }
 }
 
 .form-row {

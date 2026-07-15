@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { IconShare2, IconSquarePlus, IconDots } from '@tabler/icons-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { IconShare2, IconSquarePlus, IconDots, IconExternalLink } from '@tabler/icons-react';
 import { Modal } from './Modal';
 
 const DISMISSED_KEY = 'audial_a2hs_dismissed';
 const MOBILE_BREAKPOINT = '(max-width: 899px)';
+
+const ICON_STYLE = { display: 'inline-block' as const, verticalAlign: '-3px' };
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -17,6 +19,47 @@ function isStandalone(): boolean {
   );
 }
 
+type IosBrowser = 'safari' | 'chrome';
+
+// iOS forces every browser onto WebKit under the hood, so none of them get a
+// real install API — Safari and Chrome both need the manual Share-sheet
+// route, but the menus/icons involved differ enough between the two that
+// the steps need separate copy per browser.
+const IOS_STEPS: Record<IosBrowser, ReactNode[]> = {
+  safari: [
+    <>Tap the <IconDots size={16} stroke={1.5} style={ICON_STYLE} /> button in the bottom right corner of Safari</>,
+    <>Select the <IconShare2 size={16} stroke={1.5} style={ICON_STYLE} /> "Share" button at the top of the list</>,
+    <>Click "View More" and tap <IconSquarePlus size={16} stroke={1.5} style={ICON_STYLE} /> "Add to Home Screen"</>,
+  ],
+  // Placeholder — same steps as Safari until the real Chrome wording is filled in.
+  chrome: [
+    <>Tap the <IconShare2 size={16} stroke={1.5} style={ICON_STYLE} /> icon at the top right in the URL bar</>,
+    <>Select "View More" in the bottom row</>,
+    <>Scroll down and tap <IconSquarePlus size={16} stroke={1.5} style={ICON_STYLE} /> "Add to Home Screen"</>,
+  ],
+};
+
+function StepList({ steps }: { steps: ReactNode[] }) {
+  return (
+    <div>
+      {steps.map((step, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            marginBottom: i < steps.length - 1 ? 8 : 0,
+          }}
+        >
+          <span className="mono-label" style={{ flexShrink: 0 }}>{i + 1}</span>
+          <p className="caption" style={{ margin: 0 }}>{step}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Android/Chromium fire beforeinstallprompt when the site qualifies as an
 // installable PWA (manifest + icons present) — that's a real "do it for the
 // user" button. iOS Safari has no equivalent API at all; the only path is
@@ -25,6 +68,7 @@ function isStandalone(): boolean {
 export function AddToHomeScreenModal() {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<'android' | 'ios' | null>(null);
+  const [iosBrowser, setIosBrowser] = useState<IosBrowser>('safari');
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -37,6 +81,7 @@ export function AddToHomeScreenModal() {
     const isAndroid = /Android/i.test(ua);
 
     if (isIOS) {
+      setIosBrowser(/CriOS/i.test(ua) ? 'chrome' : 'safari');
       setPlatform('ios');
       setOpen(true);
       return;
@@ -103,26 +148,43 @@ export function AddToHomeScreenModal() {
             Add Audial to your home screen for one-tap access — it opens full-screen, just like an app.
             iOS doesn't let sites do this automatically, so:
           </p>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-            <span className="mono-label" style={{ flexShrink: 0 }}>1</span>
-            <p className="caption" style={{ margin: 0 }}>
-              Tap the <IconDots size={16} stroke={1.5} style={{ display: 'inline-block', verticalAlign: '-3px' }} /> button in the bottom right corner of Safari
-            </p>
+          <p className="mono-label" style={{ marginBottom: 16 }}>
+            If viewing within Instagram, select <IconExternalLink size={16} stroke={1.5} style={ICON_STYLE} /> "Open in external browser" from <IconDots size={16} stroke={1.5} style={ICON_STYLE} /> in top right
+          </p>
+
+          <div style={{ display: 'flex', gap: 20, marginBottom: 16, borderBottom: '1px solid var(--mist)', paddingBottom: 12 }}>
+            <button
+              className={`btn-text mono-label ${iosBrowser === 'safari' ? '' : 'smoke'}`}
+              onClick={() => setIosBrowser('safari')}
+            >
+              SAFARI
+            </button>
+            <button
+              className={`btn-text mono-label ${iosBrowser === 'chrome' ? '' : 'smoke'}`}
+              onClick={() => setIosBrowser('chrome')}
+            >
+              CHROME
+            </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-            <span className="mono-label" style={{ flexShrink: 0 }}>2</span>
-            <p className="caption" style={{ margin: 0 }}>
-              Tap the <IconShare2 size={16} stroke={1.5} style={{ display: 'inline-block', verticalAlign: '-3px' }} /> "Share" button in the bottom right corner of Safari
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <span className="mono-label" style={{ flexShrink: 0 }}>3</span>
-            <p className="caption" style={{ margin: 0 }}>
-              Scroll down and tap <IconSquarePlus size={16} stroke={1.5} style={{ display: 'inline-block', verticalAlign: '-3px' }} /> "Add to Home Screen"
-            </p>
-          </div>
+
+          <StepList steps={IOS_STEPS[iosBrowser]} />
         </div>
       )}
+
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: 20,
+          paddingTop: 16,
+          borderTop: '1px solid var(--mist)',
+          cursor: 'pointer',
+        }}
+      >
+        <input type="checkbox" onChange={(e) => { if (e.target.checked) dismiss(); }} />
+        <span className="mono-label smoke">I've already added Audial to my home screen</span>
+      </label>
     </Modal>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
 import { motion } from 'motion/react';
+import { Analytics } from '@vercel/analytics/react';
 import { AppShell } from './components/AppShell';
 import { AudioController } from './components/AudioController';
 import { AuthSheet } from './components/AuthSheet';
@@ -74,6 +75,7 @@ export default function App() {
       <EditSetModal />
       <LinksModal />
       <AddToHomeScreenModal />
+      <Analytics />
     </>
   );
 }

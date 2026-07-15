@@ -48,9 +48,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Top nav */}
       <header className="top-nav">
         <div className="container top-nav-inner">
-          <Link href="/" onClick={() => setMenuOpen(false)}>
-            <Wordmark size={22} />
-          </Link>
+          <div className="wordmark-group">
+            <Link href="/" onClick={() => setMenuOpen(false)}>
+              <Wordmark size={22} />
+            </Link>
+            <span className="mono-label beta-tag">BETA</span>
+          </div>
           <nav className="top-nav-links">
             <Link
               href="/"

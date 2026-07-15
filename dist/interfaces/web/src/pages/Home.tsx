@@ -52,7 +52,7 @@ export function HomePage() {
       <div className="home-masthead">
         <div className="issue-watermark">{issueNumber()}</div>
         <h1 className="display-xl">
-          {phrase.before}
+          <span className="display-emph-lead">{phrase.before}</span>
           <em className="display-emph">{phrase.emph}</em>
           {phrase.after}
         </h1>
