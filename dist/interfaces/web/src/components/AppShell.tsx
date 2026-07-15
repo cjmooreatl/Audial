@@ -14,6 +14,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAuth = useAuth((s) => s.isAuthenticated);
   const signOut = useAuth((s) => s.signOut);
   const openAuth = useUI((s) => s.openAuth);
+  const openOnboarding = useUI((s) => s.openOnboarding);
   const markInteracted = useAudio((s) => s.markInteracted);
   const [, navigate] = useLocation();
   const [location] = useLocation();
@@ -119,6 +120,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                       }}
                     >
                       ▪ EDIT CHANNEL
+                    </button>
+                    <button
+                      className="user-menu-item mono-label"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        openOnboarding();
+                      }}
+                    >
+                      ▪ HOW IT WORKS
                     </button>
                     <button
                       className="user-menu-item mono-label"

@@ -1,22 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { IconShare2, IconSquarePlus, IconDots, IconExternalLink } from '@tabler/icons-react';
 import { Modal } from './Modal';
-
-const DISMISSED_KEY = 'audial_a2hs_dismissed';
-const MOBILE_BREAKPOINT = '(max-width: 899px)';
+import { A2HS_DISMISSED_KEY as DISMISSED_KEY, MOBILE_BREAKPOINT, isStandalone, maybeAutoOpenOnboarding } from '../lib/onboardingFlow';
 
 const ICON_STYLE = { display: 'inline-block' as const, verticalAlign: '-3px' };
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-function isStandalone(): boolean {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as any).standalone === true
-  );
 }
 
 type IosBrowser = 'safari' | 'chrome';
@@ -102,6 +93,9 @@ export function AddToHomeScreenModal() {
   const dismiss = () => {
     setOpen(false);
     localStorage.setItem(DISMISSED_KEY, '1');
+    // Hand off to the onboarding tour, if it hasn't already been seen —
+    // keeps the two from ever stacking on a fresh mobile visit.
+    maybeAutoOpenOnboarding();
   };
 
   const handleInstall = async () => {

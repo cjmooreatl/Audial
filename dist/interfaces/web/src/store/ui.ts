@@ -13,6 +13,7 @@ interface UIState {
   shareOpen: boolean;
   editChannelOpen: boolean;
   linksOpen: boolean;
+  onboardingOpen: boolean;
   // Edit Set: holds the setId being edited, or null when closed.
   editSetId: string | null;
 
@@ -26,6 +27,8 @@ interface UIState {
   closeEditChannel: () => void;
   openLinks: () => void;
   closeLinks: () => void;
+  openOnboarding: () => void;
+  closeOnboarding: () => void;
   openEditSet: (setId: string) => void;
   closeEditSet: () => void;
 }
@@ -38,6 +41,7 @@ export const useUI = create<UIState>((set) => ({
   shareOpen: false,
   editChannelOpen: false,
   linksOpen: false,
+  onboardingOpen: false,
   editSetId: null,
 
   openAuth: (intent) => set({ authOpen: true, authIntent: intent ?? null }),
@@ -50,6 +54,8 @@ export const useUI = create<UIState>((set) => ({
   closeEditChannel: () => set({ editChannelOpen: false }),
   openLinks: () => set({ linksOpen: true }),
   closeLinks: () => set({ linksOpen: false }),
+  openOnboarding: () => set({ onboardingOpen: true }),
+  closeOnboarding: () => set({ onboardingOpen: false }),
   openEditSet: (setId) => set({ editSetId: setId }),
   closeEditSet: () => set({ editSetId: null }),
 }));

@@ -11,6 +11,7 @@ import { EditChannelModal } from './components/EditChannelModal';
 import { EditSetModal } from './components/EditSetModal';
 import { LinksModal } from './components/LinksModal';
 import { AddToHomeScreenModal } from './components/AddToHomeScreenModal';
+import { OnboardingModal } from './components/OnboardingModal';
 import { HomePage } from './pages/Home';
 import { ChannelPage } from './pages/Channel';
 import { SearchPage } from './pages/Search';
@@ -75,6 +76,7 @@ export default function App() {
       <EditSetModal />
       <LinksModal />
       <AddToHomeScreenModal />
+      <OnboardingModal />
       <Analytics />
     </>
   );
