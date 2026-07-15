@@ -80,6 +80,23 @@ function isDeezerUrl(url: string | null | undefined): boolean {
   return !!url && url.includes('dzcdn.net');
 }
 
+// Runs `items` through `fn`, at most `size` concurrently at a time — running
+// an entire set's tracks in one Promise.all (up to ~70 at once, each firing
+// 5 parallel iTunes storefront requests) reliably triggered rate limiting,
+// which surfaced as failed re-resolutions.
+async function mapWithConcurrency<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      results[idx] = await fn(items[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker));
+  return results;
+}
+
 serve(async (_req) => {
   try {
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -94,27 +111,36 @@ serve(async (_req) => {
 
     let tracksChecked = 0;
     let tracksChanged = 0;
+    let tracksFailedRefresh = 0;
 
     for (const set of sets) {
       const tracks = set.tracks ?? [];
       let changed = false;
 
-      const updated = await Promise.all(
-        tracks.map(async (t: any) => {
-          const needsRefresh = isDeezerUrl(t.previewUrl) || !t.previewUrl;
-          if (!needsRefresh || !t.title || !t.artist) return t;
+      const updated = await mapWithConcurrency(tracks, 8, async (t: any) => {
+        const needsRefresh = isDeezerUrl(t.previewUrl) || !t.previewUrl;
+        if (!needsRefresh || !t.title || !t.artist) return t;
 
-          tracksChecked++;
-          const fromItunes = await resolveViaItunes(t.title, t.artist);
-          const newUrl = fromItunes ?? (await resolveViaDeezer(t.title, t.artist));
-          if (newUrl !== (t.previewUrl ?? null)) {
-            changed = true;
-            tracksChanged++;
-            return { ...t, previewUrl: newUrl };
-          }
+        tracksChecked++;
+        const fromItunes = await resolveViaItunes(t.title, t.artist);
+        const newUrl = fromItunes ?? (await resolveViaDeezer(t.title, t.artist));
+
+        // Only ever overwrite when a fresh match is actually found. A failed
+        // lookup this cycle (rate limiting, a transient error, etc.) must
+        // never downgrade an existing previewUrl to null — that's real data
+        // loss for what may well just be a temporary hiccup; the next
+        // scheduled run gets another chance instead.
+        if (!newUrl) {
+          if (t.previewUrl) tracksFailedRefresh++;
           return t;
-        }),
-      );
+        }
+        if (newUrl !== (t.previewUrl ?? null)) {
+          changed = true;
+          tracksChanged++;
+          return { ...t, previewUrl: newUrl };
+        }
+        return t;
+      });
 
       if (changed) {
         const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/sets?id=eq.${set.id}`, {
@@ -134,7 +160,7 @@ serve(async (_req) => {
     }
 
     return new Response(
-      JSON.stringify({ setsProcessed: sets.length, tracksChecked, tracksChanged }),
+      JSON.stringify({ setsProcessed: sets.length, tracksChecked, tracksChanged, tracksFailedRefresh }),
       { headers: { 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
