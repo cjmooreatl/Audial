@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import useSWR from 'swr';
 import { useLocation } from 'wouter';
 import { IconPlus, IconX } from '@tabler/icons-react';
 import { Modal } from './Modal';
@@ -25,9 +26,7 @@ export function CompileSetModal() {
   const [tracks, setTracks] = useState<TrackSnapshot[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<TrackSnapshot[]>([]);
-  const [searching, setSearching] = useState(false);
-  const searchTimer = useRef<number | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,33 +41,28 @@ export function CompileSetModal() {
       setPlaylistUrl('');
       setTracks(preload ? [{ ...preload, addedAt: Date.now() }] : []);
       setSearchQuery('');
-      setSearchResults([]);
+      setDebouncedQuery('');
       setError(null);
     }
   }, [open, preload]);
 
-  // Debounced search
+  // Debounce the query, then let SWR own the fetch — same pattern the Search
+  // page uses. A raw setTimeout+fetch here previously had no protection
+  // against out-of-order responses: a slower response for an earlier
+  // keystroke could resolve after a faster one for a later keystroke and
+  // silently overwrite correct results with stale ones. SWR keys each
+  // request by the query itself, so a stale response for an old key never
+  // clobbers the current key's data.
   useEffect(() => {
-    if (searchTimer.current) window.clearTimeout(searchTimer.current);
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setSearching(true);
-    searchTimer.current = window.setTimeout(async () => {
-      try {
-        const { tracks } = await api.searchTracks({ query: searchQuery, limit: 12 });
-        setSearchResults(tracks);
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-    return () => {
-      if (searchTimer.current) window.clearTimeout(searchTimer.current);
-    };
+    const t = window.setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => window.clearTimeout(t);
   }, [searchQuery]);
+
+  const { data: searchData, isLoading: searching } = useSWR(
+    debouncedQuery.trim() ? ['/searchTracks-compile', debouncedQuery] : null,
+    () => api.searchTracks({ query: debouncedQuery, limit: 12 }),
+  );
+  const searchResults = searchData?.tracks ?? [];
 
   const addTrack = (t: TrackSnapshot) => {
     if (tracks.some((x) => x.itunesTrackId === t.itunesTrackId)) return;
