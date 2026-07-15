@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { useLocation } from 'wouter';
-import { IconPlus, IconX } from '@tabler/icons-react';
+import { IconPlus, IconUpload, IconX } from '@tabler/icons-react';
 import { Modal } from './Modal';
 import { Spinner } from './Spinner';
 import { CoverArt } from './CoverArt';
@@ -9,6 +9,7 @@ import { SEED_COVER_LIST, sizedCover } from '../brand/seedCovers';
 import api, { type TrackSnapshot } from '../api';
 import { useUI } from '../store/ui';
 import { useAuth } from '../store/auth';
+import { supabase } from '../lib/supabase';
 import { formatDuration } from '../brand/format';
 import { isValidUrl } from '../lib/validate';
 
@@ -31,6 +32,8 @@ export function CompileSetModal() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCoverPicker, setShowCoverPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset on open + handle preload track
   useEffect(() => {
@@ -43,8 +46,31 @@ export function CompileSetModal() {
       setSearchQuery('');
       setDebouncedQuery('');
       setError(null);
+      setShowCoverPicker(false);
     }
   }, [open, preload]);
+
+  // Stores the cover in Supabase Storage and uses its public URL.
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `covers/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('covers').upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(path);
+      setCoverUrl(publicUrl);
+      setShowCoverPicker(false);
+    } catch (err: any) {
+      setError(err?.message ?? 'Upload failed.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Debounce the query, then let SWR own the fetch — same pattern the Search
   // page uses. A raw setTimeout+fetch here previously had no protection
@@ -150,21 +176,39 @@ export function CompileSetModal() {
         <div style={{ width: 96, height: 96, flexShrink: 0 }}>
           <CoverArt url={previewCover} size={400} hover={false} alt="Cover" />
         </div>
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div className="mono-label" style={{ marginBottom: 8 }}>COVER</div>
-          <button className="btn-text" onClick={() => setShowCoverPicker(!showCoverPicker)}>
-            {showCoverPicker ? 'HIDE OPTIONS' : 'PICK A COVER'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-line"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? <Spinner /> : <><IconUpload size={14} stroke={1.5} /> UPLOAD</>}
+            </button>
+            <button className="btn btn-line" type="button" onClick={() => setShowCoverPicker(!showCoverPicker)}>
+              {showCoverPicker ? 'HIDE' : 'PICK A SEED'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+          </div>
           {showCoverPicker && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 48px)', gap: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
               {SEED_COVER_LIST.map((c) => (
                 <button
                   key={c.slot}
                   type="button"
-                  onClick={() => setCoverUrl(c.url)}
+                  onClick={() => { setCoverUrl(c.url); setShowCoverPicker(false); }}
                   style={{
                     width: 48,
                     height: 48,
+                    flexShrink: 0,
                     border: coverUrl === c.url ? '2px solid var(--ink)' : '1px solid var(--mist)',
                     padding: 0,
                     background: 'transparent',

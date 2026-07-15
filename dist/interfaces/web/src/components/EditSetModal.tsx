@@ -251,7 +251,7 @@ export function EditSetModal() {
             <div style={{ width: 96, height: 96, flexShrink: 0 }}>
               <CoverArt url={coverUrl} size={400} hover={false} alt="Cover" />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div className="mono-label" style={{ marginBottom: 8 }}>COVER</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -278,10 +278,11 @@ export function EditSetModal() {
               {showCoverPicker && (
                 <div
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(6, 48px)',
+                    display: 'flex',
                     gap: 8,
                     marginTop: 12,
+                    overflowX: 'auto',
+                    paddingBottom: 4,
                   }}
                 >
                   {SEED_COVER_LIST.map((c) => (
@@ -295,6 +296,7 @@ export function EditSetModal() {
                       style={{
                         width: 48,
                         height: 48,
+                        flexShrink: 0,
                         border: coverUrl === c.url ? '2px solid var(--ink)' : '1px solid var(--mist)',
                         padding: 0,
                         background: 'transparent',
