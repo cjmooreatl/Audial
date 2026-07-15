@@ -48,7 +48,10 @@ interface DeezerTrack {
   coverUrl: string | null;
 }
 
-async function resolveDeezerTrack(title: string, artist: string): Promise<DeezerTrack | null> {
+// Exported for AudioController — Deezer's preview links are signed and
+// expire 15 minutes after being issued, so any previously-stored Deezer url
+// must be re-resolved fresh immediately before playback, never trusted as-is.
+export async function resolveDeezerTrack(title: string, artist: string): Promise<DeezerTrack | null> {
   const { data, error } = await supabase.functions.invoke('deezer-search', {
     body: { title, artist },
   });
